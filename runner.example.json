@@ -1,0 +1,26 @@
+{
+  "bridgeUrl": "https://127.0.0.1:9443",
+  "caFile": "/opt/feishu-codex/data/tls/ca.crt",
+  "name": "team-runner",
+  "ownerId": "ou_leader_open_id",
+  "dataDir": "/opt/feishu-codex/runner/state",
+  "capacity": 1,
+  "provider": {
+    "baseUrl": "https://your-responses-provider.example/v1",
+    "model": "your-coding-model",
+    "label": "Team server"
+  },
+  "modelKeyEnv": "CODEX_MODEL_API_KEY",
+  "projects": [
+    { "id": "feedbackdesk", "path": "/opt/feishu-codex/fixtures/feedbackdesk", "ref": "HEAD", "checks": [["node", "--test"]] }
+  ],
+  "sandbox": {
+    "image": "feishu-codex-task:runner-v1",
+    "cpus": 2,
+    "memoryMiB": 4096,
+    "pids": 256,
+    "timeoutSeconds": 1800,
+    "diskMiB": 2048,
+    "egressHosts": ["registry.npmjs.org"]
+  }
+}

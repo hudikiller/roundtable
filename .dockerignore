@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+data
+.env*
+config.json
+config.local.json
+*.log
+.worktrees

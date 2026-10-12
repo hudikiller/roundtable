@@ -1,0 +1,41 @@
+{
+  "tenantId": "your_tenant_key",
+  "allowedChats": ["oc_your_group_chat_id"],
+  "allowedMembers": ["ou_member_a_open_id", "ou_member_b_open_id"],
+  "leaders": ["ou_member_a_open_id"],
+  "receiveBackground": true,
+  "threadFollowups": "mention",
+  "replyMode": "thread",
+  "naturalExecution": true,
+  "cutoffTime": 0,
+  "provider": {
+    "baseUrl": "https://unused.invalid/v1",
+    "model": "node-only"
+  },
+  "repositories": [
+    { "id": "feedbackdesk", "path": "/opt/feishu-codex/fixtures/feedbackdesk", "ref": "HEAD", "checks": [["node", "--test"]] }
+  ],
+  "defaultRepo": "feedbackdesk",
+  "dataDir": "./data",
+  "concurrency": 2,
+  "runnerBridge": {
+    "port": 9443,
+    "certFile": "/opt/feishu-codex/data/tls/bridge.crt",
+    "keyFile": "/opt/feishu-codex/data/tls/bridge.key",
+    "enrollmentKeyFile": "/opt/feishu-codex/data/enrollment.key",
+    "defaultNode": "team-runner",
+    "sharedNodes": ["team-runner"],
+    "feishuEnabled": true,
+    "intentModel": {
+      "baseUrl": "https://your-responses-provider.example/v1",
+      "model": "your-fast-model",
+      "keyEnv": "BRIDGE_MODEL_API_KEY"
+    },
+    "defaults": { "model": "your-coding-model", "effort": "medium" },
+    "models": [
+      { "id": "your-coding-model", "label": "Coding Model" },
+      { "id": "your-fast-model", "label": "Fast Model" }
+    ],
+    "groupAgent": { "enabled": true, "node": "team-runner", "pauseAfter": 100, "ackEmoji": "OnIt", "webSearch": true }
+  }
+}

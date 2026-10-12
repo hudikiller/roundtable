@@ -1,0 +1,48 @@
+{
+  "name": "feishu-codex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Claude Tag–style team agent for Feishu/Lark: one long-lived group agent, isolated topic sessions, and Codex runners on your own machines.",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "doctor": "tsx src/doctor.ts",
+    "start": "tsx src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts",
+    "test:sandbox": "tsx scripts/sandbox-check.ts",
+    "test:runtime": "tsx scripts/runtime-smoke.ts",
+    "image:build": "docker build -t feishu-codex-task:runner-v1 -f docker/task.Dockerfile .",
+    "protocol:generate": "tsx scripts/generate-protocol.ts",
+    "status": "tsx src/admin.ts status",
+    "recover": "tsx src/admin.ts recover",
+    "backup": "tsx src/admin.ts backup",
+    "outbox:resolve": "tsx src/admin.ts outbox",
+    "fixture:init": "tsx scripts/fixture-init.ts",
+    "runner:setup": "node dist/src/runner/cli.js setup",
+    "runner:doctor": "node dist/src/runner/cli.js doctor",
+    "runner": "node dist/src/runner/cli.js run",
+    "runner:admin": "node dist/src/runner/admin.js",
+    "runner:tls": "node dist/scripts/runner-tls.js",
+    "test:runner-runtime": "node dist/scripts/runner-runtime-smoke.js"
+  },
+  "dependencies": {
+    "@larksuite/channel": "0.7.1",
+    "@openai/codex": "0.153.4",
+    "fflate": "0.8.3",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "24.7.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hudikiller/feishu-codex-team.git"
+  }
+}
