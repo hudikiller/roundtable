@@ -1,4 +1,5 @@
 import type { Client } from "@larksuiteoapi/node-sdk";
+import { L } from "./i18n.js";
 
 export interface Attachment { type: "image" | "file"; key: string; name?: string }
 export function attachmentDescriptors(type: string | undefined, content: string): Attachment[] {
@@ -26,7 +27,7 @@ export async function readAttachment(client: Client, messageId: string, attachme
   const limit = attachment.type === "image" ? 2 * 1024 * 1024 : 64 * 1024;
   if (attachment.type === "file" && (!attachment.name ||
       !/\.(?:md|txt|csv|json|log|ts|js|py|html|css)$/i.test(attachment.name)))
-    throw new Error("文件仅支持明确命名的 UTF-8 文本，不解压或执行附件");
+    throw new Error(L("文件仅支持明确命名的 UTF-8 文本，不解压或执行附件", "Only clearly named UTF-8 text files are supported; attachments are never unpacked or run"));
   const response = await client.im.messageResource.get({
     path: { message_id: messageId, file_key: attachment.key }, params: { type: attachment.type },
   });
@@ -35,22 +36,22 @@ export async function readAttachment(client: Client, messageId: string, attachme
   for await (const chunk of stream) {
     const bytes = Buffer.from(chunk);
     size += bytes.length;
-    if (size > limit) { stream.destroy(); throw new Error(`附件超过 ${attachment.type === "image" ? "2 MiB" : "64 KiB"} 预算`); }
+    if (size > limit) { stream.destroy(); throw new Error(L(`附件超过 ${attachment.type === "image" ? "2 MiB" : "64 KiB"} 预算`, `Attachment exceeds the ${attachment.type === "image" ? "2 MiB" : "64 KiB"} budget`)); }
     chunks.push(bytes);
   }
   const bytes = Buffer.concat(chunks);
-  if (!bytes.length) throw new Error("附件为空");
+  if (!bytes.length) throw new Error(L("附件为空", "Attachment is empty"));
   if (attachment.type === "file") {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    if (text.includes("\0")) throw new Error("二进制附件不能当作文本");
+    if (text.includes("\0")) throw new Error(L("二进制附件不能当作文本", "Binary attachments cannot be read as text"));
     return { text };
   }
   let mime: string;
   if (bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
     const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
-    if (!width || !height || width * height > 16_000_000) throw new Error("图片像素超过预算");
+    if (!width || !height || width * height > 16_000_000) throw new Error(L("图片像素超过预算", "Image exceeds the pixel budget"));
     mime = "image/png";
   } else if (bytes[0] === 255 && bytes[1] === 216 && bytes.at(-2) === 255 && bytes.at(-1) === 217) mime = "image/jpeg";
-  else throw new Error("图片仅支持实际 PNG 或 JPEG，不读取 SVG 和外部图片链接");
+  else throw new Error(L("图片仅支持实际 PNG 或 JPEG，不读取 SVG 和外部图片链接", "Only real PNG or JPEG images are supported; SVG and external image links are not read"));
   return { image: `data:${mime};base64,${bytes.toString("base64")}` };
 }

@@ -3,6 +3,7 @@ import { mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import type { Session } from "../types.js";
 import type { Assignment, Envelope, Completion, Control } from "./protocol.js";
+import { L } from "../i18n.js";
 
 export interface LocalRun {
   assignment?: Assignment; runId: string; generation: number;
@@ -52,7 +53,7 @@ export class NodeJournal {
     } catch (e) { this.db.exec("ROLLBACK"); throw e; }
   }
   complete(r: LocalRun): Envelope {
-    if (!r.completion) throw new Error("缺少最终结果");
+    if (!r.completion) throw new Error(L("缺少最终结果", "Missing final result"));
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.save(r);

@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, chmodSync, existsSync } from "n
 import { dirname, resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { nodeConfigSchema, loadNode, nodeCapabilities } from "./config.js";
+import { L, setLocale } from "../i18n.js";
 import { BridgeClient } from "./client.js";
 import { doctor, ready } from "./doctor.js";
 import { RunnerDaemon } from "./daemon.js";
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
     for await (const chunk of process.stdin) input.push(Buffer.from(chunk));
     const { code, ...template } = JSON.parse(Buffer.concat(input).toString());
     const staged = nodeConfigSchema.parse({ nodeId: "00000000-0000-4000-8000-000000000000", token: "pending".repeat(8), ...template });
+    setLocale(staged.locale);
     const pendingFile = file + ".enrollment";
     let requestId = randomUUID();
     if (existsSync(pendingFile)) {
@@ -23,11 +25,11 @@ async function main(): Promise<void> {
       if (prior.completed && existsSync(file)) {
         const saved = nodeConfigSchema.parse(JSON.parse(readFileSync(file, "utf8")));
         if (saved.name !== staged.name || saved.ownerId !== staged.ownerId || saved.bridgeUrl !== staged.bridgeUrl)
-          throw new Error("已有配对配置不同；使用新的配置目录，不能隐式重配节点");
+          throw new Error(L("已有配对配置不同；使用新的配置目录，不能隐式重配节点", "An existing pairing config differs; use a new config directory instead of silently re-pairing this node"));
         console.log(JSON.stringify({ paired: true, alreadyPaired: true, nodeId: saved.nodeId, name: saved.name }));
         return;
       }
-      if (prior.code !== code) throw new Error("存在待核对配对回执；先确认或清理旧请求");
+      if (prior.code !== code) throw new Error(L("存在待核对配对回执；先确认或清理旧请求", "A pairing receipt is still pending; confirm or clear the old request first"));
       requestId = prior.requestId;
     } else {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
@@ -48,7 +50,7 @@ async function main(): Promise<void> {
     if (result.checks.some(c => !c.ok)) process.exitCode = 1;
     return;
   }
-  if (operation !== "run") throw new Error("使用 runner:setup / runner:doctor / runner");
+  if (operation !== "run") throw new Error(L("使用 runner:setup / runner:doctor / runner", "Use runner:setup / runner:doctor / runner"));
   const free = await doctor(config, modelKey);
   const canRun = free.checks.filter(c => c.name !== "bridge-tls-and-auth").every(c => c.ok) && await ready(config, modelKey);
   const daemon = new RunnerDaemon(config, modelKey, canRun);

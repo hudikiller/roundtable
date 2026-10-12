@@ -1,4 +1,5 @@
 import { exec } from "./process.js";
+import { L } from "./i18n.js";
 
 export type DockerCommand = typeof exec;
 
@@ -17,15 +18,15 @@ export class ContainerTermination {
     const result = await this.command("docker", ["rm", "-f", name], { timeout: 15_000 });
     if (result.code !== 0 && !result.stderr.includes("No such container") &&
         !/removal.*(?:already )?in progress/i.test(result.stderr))
-      throw new Error(`容器终止未确认：${name}`);
+      throw new Error(L(`容器终止未确认：${name}`, `Container termination not confirmed: ${name}`));
     // Docker --rm and an explicit stop can overlap outside this process.
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
       const inspect = await this.command("docker", ["inspect", "--format", "{{.State.Status}}", name], { timeout: 5000 });
       if (inspect.code !== 0 && /No such (?:object|container)/i.test(inspect.stderr)) return;
-      if (inspect.code !== 0) throw new Error(`容器状态核对失败：${name}`);
+      if (inspect.code !== 0) throw new Error(L(`容器状态核对失败：${name}`, `Container status check failed: ${name}`));
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    throw new Error(`容器删除尚未完成：${name}`);
+    throw new Error(L(`容器删除尚未完成：${name}`, `Container removal not finished yet: ${name}`));
   }
 }

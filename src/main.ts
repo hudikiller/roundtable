@@ -15,6 +15,7 @@ import { IntentClassifier, ResponsesSummarizer } from "./intent.js";
 import { GroupAgent } from "./group.js";
 import { importGroupHistory } from "./history-import.js";
 import { ProgressCards } from "./progress.js";
+import { L } from "./i18n.js";
 
 const requestedPath = process.env.FEISHU_CODEX_CONFIG || "config.json";
 const isRemote = !!configSchema.parse(JSON.parse(readFileSync(requestedPath, "utf8"))).runnerBridge;
@@ -25,8 +26,8 @@ function lock(): number {
   try { return openSync(lockPath, "wx", 0o600); }
   catch {
     const pid = Number(readFileSync(lockPath, "utf8"));
-    if (!pid || pid === process.pid) throw new Error("无效服务锁，需要管理员核对");
-    try { process.kill(pid, 0); throw new Error(`本项目服务已运行 (PID ${pid})`); }
+    if (!pid || pid === process.pid) throw new Error(L("无效服务锁，需要管理员核对", "Invalid service lock; an admin needs to check it"));
+    try { process.kill(pid, 0); throw new Error(L(`本项目服务已运行 (PID ${pid})`, `The service is already running (PID ${pid})`)); }
     catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
       unlinkSync(lockPath);

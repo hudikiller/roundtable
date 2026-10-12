@@ -3,6 +3,7 @@ import type { AppConfig, Secrets } from "./config.js";
 import type { Store } from "./store.js";
 import type { Job, Session, LoadedContext, IncomingMessage } from "./types.js";
 import { redact } from "./log.js";
+import { L } from "./i18n.js";
 import { attachmentDescriptors, readAttachment } from "./attachments.js";
 
 export type Historical = NonNullable<NonNullable<Awaited<ReturnType<Client["im"]["message"]["get"]>>["data"]>["items"]>[number];
@@ -65,9 +66,9 @@ export async function loadPlatformContext(client: Client, config: AppConfig, sec
       container_id_type: "thread", container_id: initial.thread_id,
       sort_type: "ByCreateTimeDesc", page_size: 20,
     } });
-    if (history.code !== 0) notes.push(`引用 ${initial.message_id} 的线程历史未读取成功，只能使用取得的正文。`);
+    if (history.code !== 0) notes.push(L(`引用 ${initial.message_id} 的线程历史未读取成功，只能使用取得的正文。`, `Thread history of reference ${initial.message_id} could not be read; only the retrieved text can be used.`));
     else {
-      if (history.data?.has_more) notes.push(`引用 ${initial.message_id} 的历史超过20条，本次仅读取近期一页。`);
+      if (history.data?.has_more) notes.push(L(`引用 ${initial.message_id} 的历史超过20条，本次仅读取近期一页。`, `History of reference ${initial.message_id} exceeds 20 messages; only the most recent page was read this time.`));
       threadMessages.set(initial.thread_id, (history.data?.items ?? []).filter(item => item.chat_id === session.chatId && item.message_id)
         .map(item => item.message_id!));
       for (const item of history.data?.items ?? [])
@@ -75,29 +76,29 @@ export async function loadPlatformContext(client: Client, config: AppConfig, sec
     }
   }
   if (job.contextScope === "chat") {
-    notes.push("用户本次明确要求群级概览；仅取本群近期20条和最多4个近期话题，不能声称完整导出全部历史。");
+    notes.push(L("用户本次明确要求群级概览；仅取本群近期20条和最多4个近期话题，不能声称完整导出全部历史。", "The user explicitly asked for a group-level overview this time; only the 20 most recent group messages and at most 4 recent topics were fetched. Do not claim the full history was exported."));
     try {
       const history = await client.im.message.list({ params: {
         container_id_type: "chat", container_id: session.chatId,
         sort_type: "ByCreateTimeDesc", page_size: 20,
       } });
-      if (history.code !== 0) notes.push("群级历史未读取成功，不得推测群里的讨论。");
+      if (history.code !== 0) notes.push(L("群级历史未读取成功，不得推测群里的讨论。", "Group-level history could not be read; do not guess what was discussed in the group."));
       else {
-        if (history.data?.has_more) notes.push("群历史存在更多记录，当前概览已经截断。");
+        if (history.data?.has_more) notes.push(L("群历史存在更多记录，当前概览已经截断。", "The group history has more records; this overview is truncated."));
         const roots = history.data?.items ?? [];
         for (const item of roots) if (item.message_id && authorized(item)) records.set(item.message_id, item);
         const threads = roots.filter(item => item.message_id !== job.messageId && authorized(item) && item.thread_id);
-        if (threads.length > 4) notes.push("部分话题未展开，当前不是完整频道记录。");
+        if (threads.length > 4) notes.push(L("部分话题未展开，当前不是完整频道记录。", "Some topics were not expanded; this is not the full channel record."));
         for (const item of threads.slice(0, 4)) await readThread(item);
       }
-    } catch { notes.push("群级记录的应用身份读取失败，没有使用用户 OAuth 补齐。"); }
+    } catch { notes.push(L("群级记录的应用身份读取失败，没有使用用户 OAuth 补齐。", "Reading group-level records with the app identity failed; user OAuth was not used to fill the gap.")); }
   }
   for (const id of targets) {
     try {
       const response = await client.im.message.get({ path: { message_id: id }, params: { user_id_type: "open_id" } });
       const initial = response.data?.items?.find(item => item.message_id === id);
       if (response.code !== 0 || !initial || initial.chat_id !== session.chatId) {
-        notes.push(`引用 ${id} 未取得可访问的同群正文，不得推测。`); continue;
+        notes.push(L(`引用 ${id} 未取得可访问的同群正文，不得推测。`, `No accessible same-group text was retrieved for reference ${id}; do not guess.`)); continue;
       }
       records.set(id, initial);
       if (authorized(initial)) await readThread(initial);
@@ -105,7 +106,7 @@ export async function loadPlatformContext(client: Client, config: AppConfig, sec
         ownThreadMessages.add(id);
         for (const messageId of threadMessages.get(initial.thread_id ?? "") ?? []) ownThreadMessages.add(messageId);
       }
-    } catch { notes.push(`引用 ${id} 的应用身份读取失败；没有使用用户身份或网页补齐，请补授权或粘贴相关原文。`); }
+    } catch { notes.push(L(`引用 ${id} 的应用身份读取失败；没有使用用户身份或网页补齐，请补授权或粘贴相关原文。`, `Reading reference ${id} with the app identity failed; the user identity and web pages were not used to fill the gap. Grant access or paste the relevant text.`)); }
   }
   const lines: string[] = [];
   let budget = 7000;
@@ -123,28 +124,28 @@ export async function loadPlatformContext(client: Client, config: AppConfig, sec
       return latest ? [[latest.message_id, latest] as const] : [];
     })).values()] : matching.slice(-1);
   const attachmentMessages = new Set(attachmentRecords.map(item => item.message_id));
-  if (selected.length > 20) notes.push("多个引用合计超过20条，已取近期记录。");
+  if (selected.length > 20) notes.push(L("多个引用合计超过20条，已取近期记录。", "References total more than 20 messages; the most recent ones were used."));
   // Explicit media is read first, even when its message precedes the recent history window.
   for (const item of attachmentRecords.slice().reverse()) {
     const label = `[${item.sender!.id} | ${item.message_id}]`;
     if (job.readAttachments) for (const attachment of attachmentDescriptors(item.msg_type, item.body?.content ?? "{}")
         .filter(attachment => !kinds.length || kinds.includes(attachment.type))) {
       if (attachmentCount >= 4 || (attachment.type === "image" ? images.length >= 2 : budget <= 0)) {
-        notes.push("附件预算已达上限，部分附件未读取。"); break;
+        notes.push(L("附件预算已达上限，部分附件未读取。", "The attachment budget was reached; some attachments were not read.")); break;
       }
       attachmentCount++;
       try {
         const content = await readAttachment(client, item.message_id!, attachment);
         if ("image" in content) {
           images.push({ messageId: item.message_id!, url: content.image });
-          notes.push(`${label} 图片已通过原消息资源接口读取，作为本回合图像输入，不构成执行授权。`);
+          notes.push(L(`${label} 图片已通过原消息资源接口读取，作为本回合图像输入，不构成执行授权。`, `${label} image was read through the original message resource API and is image input for this turn, not execution authorization.`));
         } else {
-          const line = redact(`${label} 附件 ${attachment.name} 正文：\n${content.text}`);
+          const line = redact(L(`${label} 附件 ${attachment.name} 正文：\n${content.text}`, `${label} attachment ${attachment.name} content:\n${content.text}`));
           lines.unshift(line.slice(0, budget));
-          if (line.length > budget) notes.push("附件正文超过背景字符预算，已截断。");
+          if (line.length > budget) notes.push(L("附件正文超过背景字符预算，已截断。", "Attachment text exceeded the background character budget and was truncated."));
           budget -= Math.min(line.length, budget) + 1;
         }
-      } catch { notes.push(`${label} 附件未读取成功：仅支持 PNG/JPEG（2 MiB）和 UTF-8 文本（64 KiB），无权限或超预算不能当作已读取。`); }
+      } catch { notes.push(L(`${label} 附件未读取成功：仅支持 PNG/JPEG（2 MiB）和 UTF-8 文本（64 KiB），无权限或超预算不能当作已读取。`, `${label} attachment could not be read: only PNG/JPEG (2 MiB) and UTF-8 text (64 KiB) are supported; attachments without permission or over budget must not be treated as read.`)); }
     }
   }
   const history = [...selected.filter(item => !attachmentMessages.has(item.message_id)).slice(-(20 - Math.min(attachmentRecords.length, 20))),
@@ -156,15 +157,15 @@ export async function loadPlatformContext(client: Client, config: AppConfig, sec
     const text = item.message_id === job.messageId || cached ? undefined : textOf(item);
     if (!text) continue;
     const line = redact(`[${item.sender!.id} | ${item.message_id}] ${text}`);
-    if (budget <= 0) { notes.push("正文超过8,000字符预算，已截断。"); break; }
+    if (budget <= 0) { notes.push(L("正文超过8,000字符预算，已截断。", "Text exceeded the 8,000-character budget and was truncated.")); break; }
     lines.unshift(line.slice(0, budget));
-    if (line.length > budget) notes.push("正文超过8,000字符预算，已截断。");
+    if (line.length > budget) notes.push(L("正文超过8,000字符预算，已截断。", "Text exceeded the 8,000-character budget and was truncated."));
     budget -= Math.min(line.length, budget) + 1;
   }
   if (job.readAttachments && !matching.length)
-    notes.push("没有取得匹配本次请求的图片或文本附件；请明确引用附件消息，不得假装已看见。");
+    notes.push(L("没有取得匹配本次请求的图片或文本附件；请明确引用附件消息，不得假装已看见。", "No image or text attachment matching this request was retrieved; quote the attachment message explicitly, and do not pretend to have seen it."));
   if ((targets.length || job.contextScope === "chat") && !lines.length && !images.length)
-    notes.push("没有取得可用于本请求的授权成员正文；不得声称读到了完整历史。");
+    notes.push(L("没有取得可用于本请求的授权成员正文；不得声称读到了完整历史。", "No text from authorized members was retrieved for this request; do not claim to have read the full history."));
   return { text: [...notes, ...lines].join("\n").slice(0, 8000), images };
 }
 

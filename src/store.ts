@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Job, OutboxEntry, Session, RunEvent } from "./types.js";
 import type { SQLInputValue } from "node:sqlite";
+import { L } from "./i18n.js";
 
 type Row = Record<string, unknown>;
 const now = () => Date.now();
@@ -60,13 +61,13 @@ export class Store {
       const row = this.db.prepare("SELECT session_id FROM aliases WHERE tenant=? AND chat=? AND alias=?").get(tenant, chat, alias);
       if (row) ids.add(String(row.session_id));
     }
-    if (ids.size > 1) throw new Error("消息关联到多个任务线程，需要管理员核对映射");
+    if (ids.size > 1) throw new Error(L("消息关联到多个任务线程，需要管理员核对映射", "Message is linked to multiple task threads; an admin needs to check the mapping"));
     return ids.size ? this.getSession([...ids][0]!) : undefined;
   }
   addAliases(s: Session, references: (string | undefined)[]): void {
     for (const alias of new Set(references.filter((v): v is string => !!v))) {
       const previous = this.db.prepare("SELECT session_id FROM aliases WHERE tenant=? AND chat=? AND alias=?").get(s.tenantId, s.chatId, alias);
-      if (previous && previous.session_id !== s.id) throw new Error("拒绝合并不同任务的线程别名");
+      if (previous && previous.session_id !== s.id) throw new Error(L("拒绝合并不同任务的线程别名", "Refusing to merge thread aliases of different tasks"));
       this.db.prepare("INSERT OR IGNORE INTO aliases VALUES(?,?,?,?)").run(s.tenantId, s.chatId, alias, s.id);
       this.db.prepare(`UPDATE inbound SET session_id=? WHERE tenant=? AND chat=? AND session_id IS NULL
         AND (root=? OR thread=? OR reply_to=? OR message_id=?)`).run(s.id, s.tenantId, s.chatId, alias, alias, alias, alias);
@@ -153,24 +154,24 @@ export class Store {
           AND json_extract(resolution.detail,'$.messageId')=json_extract(request.detail,'$.messageId'))`).all();
       for (const row of unresolved) {
         const detail = JSON.parse(String(row.detail)) as { messageId: string; jobId: string };
-        this.audit(String(row.actor), String(row.session_id), "steer_uncertain", { ...detail, reason: "服务在插话确认期间中断，不自动重发" });
+        this.audit(String(row.actor), String(row.session_id), "steer_uncertain", { ...detail, reason: L("服务在插话确认期间中断，不自动重发", "Service was interrupted while confirming a steering message; not resending automatically") });
         const session = this.getSession(String(row.session_id))!;
         this.enqueueReply({ sessionId: session.id, jobId: detail.jobId, purpose: "control",
           target: { tenantId: session.tenantId, chatId: session.chatId, messageId: session.rootMessageId },
-          text: "上次插话的确认因服务中断而不确定，不会自动重发。请核对已有成果，并明确恢复未结束任务。" });
+          text: L("上次插话的确认因服务中断而不确定，不会自动重发。请核对已有成果，并明确恢复未结束任务。", "A service interruption left the last steering message unconfirmed, so it won't be resent automatically. Check the existing results and explicitly recover any unfinished task.") });
       }
       for (const job of this.jobs("running")) {
         job.status = "needs_recovery";
-        job.error = "服务中断，执行结果可能包含尚未记录的副作用；请由发起人或 Leader 明确恢复。";
+        job.error = L("服务中断，执行结果可能包含尚未记录的副作用；请由发起人或 Leader 明确恢复。", "Service was interrupted; the run may have side effects not yet recorded. The initiator or a Leader needs to explicitly recover it.");
         this.saveJob(job);
         const session = this.getSession(job.sessionId)!;
         this.enqueueReply({ sessionId: session.id, jobId: job.id,
           target: { tenantId: session.tenantId, chatId: session.chatId, messageId: session.rootMessageId },
-          text: `任务 ${job.id.slice(0, 8)} 待恢复：${job.error}` });
+          text: L(`任务 ${job.id.slice(0, 8)} 待恢复：${job.error}`, `Task ${job.id.slice(0, 8)} needs recovery: ${job.error}`) });
       }
       for (const entry of this.outbox("sending")) {
         entry.status = "uncertain";
-        entry.error = "上次发送过程中服务中断；核对平台是否已送达后再决定补发。";
+        entry.error = L("上次发送过程中服务中断；核对平台是否已送达后再决定补发。", "Service was interrupted during the last send. Check whether the platform delivered it before resending.");
         this.saveOutbox(entry);
       }
     });

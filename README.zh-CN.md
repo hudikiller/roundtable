@@ -15,6 +15,8 @@
 
 [English](README.md) · 简体中文 · [核心能力](#核心能力) · [快速开始](#快速开始how-to-start) · [日常用法](#日常用法) · [配置参考](#配置参考)
 
+<img src="docs/media/demo.gif" alt="Roundtable 演示：卡片清单边做边打勾，最后由人点击接受" width="860">
+
 </div>
 
 ---
@@ -358,6 +360,7 @@ ssh -N -L 127.0.0.1:19443:127.0.0.1:9443 runner-forward@your-server
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
+| `locale` | `en` | 界面语言（`en` 或 `zh`）：回复、卡片、按钮，以及要求模型使用的回答语言。Bridge 与 Runner 配置都要设置；中文团队设为 `zh` |
 | `runnerBridge.intentModel` | — | Bridge 意图模型。配置后所有意图交给 AI；未配置时退回固定格式命令 |
 | `runnerBridge.groupAgent.enabled` | `false` | 开启主群 Agent |
 | `runnerBridge.groupAgent.pauseAfter` | `100` | 累计多少条未参与消息后暂停逐条判断 |

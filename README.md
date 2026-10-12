@@ -13,6 +13,8 @@ An AI teammate for Feishu/Lark that listens to the whole room, speaks rarely,<br
 
 English · [简体中文](README.zh-CN.md) · [Highlights](#highlights) · [Quick start](#quick-start) · [Everyday use](#everyday-use) · [Configuration](#configuration)
 
+<img src="docs/media/demo.gif" alt="Roundtable demo: a live checklist card ticks itself off, then a human clicks Accept" width="860">
+
 </div>
 
 ---
@@ -373,6 +375,7 @@ See `src/config.ts` (Bridge) and `src/runner/config.ts` (Runner) for every field
 
 | Field | Default | Meaning |
 |---|---|---|
+| `locale` | `en` | Interface language (`en` or `zh`): replies, cards, buttons, and the language models answer in. Set it in both the Bridge and Runner configs |
 | `runnerBridge.intentModel` | — | Bridge intent model; without it, fixed-format commands are used |
 | `runnerBridge.groupAgent.enabled` | `false` | Enable the group agent |
 | `runnerBridge.groupAgent.pauseAfter` | `100` | Unengaged top-level messages before pausing per-message judgement |

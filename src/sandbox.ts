@@ -12,6 +12,7 @@ import { ContainerTermination } from "./container-termination.js";
 import { SteeringError } from "./types.js";
 import { memoryArgs } from "./container-resources.js";
 import { writeDurableFile } from "./durable-file.js";
+import { L } from "./i18n.js";
 
 interface Active {
   sessionId: string; jobId: string; cancelled: boolean; container: string; network: string;
@@ -56,7 +57,7 @@ export class Sandbox implements Runner {
     // model still receives a read-only mount. A doctor without a project stays blank.
     if (session.initialized || (mode !== "execute" && (!this.config.sandbox.nodeId || !session.repoId))) return;
     const repository = this.config.repositories.find(r => r.id === session.repoId);
-    if (!repository) throw new Error("指定仓库不在允许列表中");
+    if (!repository) throw new Error(L("指定仓库不在允许列表中", "Repository is not on the allowed list"));
     const base = (await checked("git", ["-C", repository.path, "rev-parse", `${repository.ref}^{commit}`])).toString().trim();
     const tmp = join(this.config.dataDir, "tmp");
     await mkdir(tmp, { recursive: true, mode: 0o700 });
@@ -64,7 +65,7 @@ export class Sandbox implements Runner {
     try {
       await checked("git", ["-C", repository.path, "bundle", "create", bundlePath, repository.ref], { timeout: 60_000 });
       const bundle = await readFile(bundlePath);
-      if (bundle.length > 256 * 1024 * 1024) throw new Error("仓库 bundle 超过首版 256 MiB 导入上限");
+      if (bundle.length > 256 * 1024 * 1024) throw new Error(L("仓库 bundle 超过首版 256 MiB 导入上限", "Repository bundle exceeds the 256 MiB import limit"));
       const name = active ? `${active.container}-init` : `fc-init-${session.id.replaceAll("-", "")}`;
       if (active) { active.container = name; this.checkCancelled(active); }
       session.branch ??= `task-${session.id}`;
@@ -81,7 +82,7 @@ export class Sandbox implements Runner {
       session.initialized = true;
     } finally { await rm(bundlePath, { force: true }); }
   }
-  private checkCancelled(a: Active): void { if (a.cancelled) throw new Error("任务已停止"); }
+  private checkCancelled(a: Active): void { if (a.cancelled) throw new Error(L("任务已停止", "Task stopped")); }
   private runtimeArgs(session: Session, job: Job, a: Active): string[] {
     return ["run", "--pull=never", "-i", "--name", a.container, ...a.labels, "--label", `session=${session.id}`,
       "--label", `job=${job.id}`, ...limits, "--cpus", String(this.config.sandbox.cpus),
@@ -146,7 +147,7 @@ export class Sandbox implements Runner {
       });
       a.harness = new CodexHarness(a.child);
       timeout = setTimeout(() => {
-        stopReason = "任务超过时长限制";
+        stopReason = L("任务超过时长限制", "Task exceeded its time limit");
         void this.stop(session.id).catch(() => {});
       }, this.config.sandbox.timeoutSeconds * 1000);
       watchdog = setInterval(() => {
@@ -157,7 +158,7 @@ export class Sandbox implements Runner {
             if (result.code !== 0) return;
             const totalKiB = result.stdout.toString().trim().split("\n").reduce((sum, line) => sum + Number(line.split(/\s/)[0] || 0), 0);
             if (totalKiB > this.config.sandbox.diskMiB * 1024) {
-              stopReason = "工作区与 Codex 状态超过磁盘预算（监测限额）";
+              stopReason = L("工作区与 Codex 状态超过磁盘预算（监测限额）", "Workspace and Codex state exceeded the disk budget (monitored limit)");
               void this.stop(session.id).catch(() => {});
             }
           }).finally(() => { monitoring = false; });
@@ -188,7 +189,7 @@ export class Sandbox implements Runner {
       catch (e) {
         final.status = "failed";
         final.cleanupFailed = true;
-        final.error = `${final.error ? final.error + "；" : ""}资源终止未确认：${errorText(e)}`;
+        final.error = L(`${final.error ? final.error + "；" : ""}资源终止未确认：${errorText(e)}`, `${final.error ? final.error + "; " : ""}Resource termination not confirmed: ${errorText(e)}`);
       } finally { this.active.delete(session.id); a.finish(); }
     }
   }
@@ -196,9 +197,9 @@ export class Sandbox implements Runner {
   private async writeFiles(session: Session, job: Job, a: Active): Promise<void> {
     for (const [index, file] of (job.files ?? []).entries()) {
       if (!/^\.group\/[a-zA-Z0-9_.-]{1,80}$/.test(file.path) || file.path.includes(".."))
-        throw new Error("拒绝写入工作区外或未批准的参考文件路径");
+        throw new Error(L("拒绝写入工作区外或未批准的参考文件路径", "Refusing to write a reference file outside the workspace or to an unapproved path"));
       const content = Buffer.from(file.content, "utf8");
-      if (content.length > 6 * 1024 * 1024) throw new Error("参考文件超过 6 MiB 上限");
+      if (content.length > 6 * 1024 * 1024) throw new Error(L("参考文件超过 6 MiB 上限", "Reference file exceeds the 6 MiB limit"));
       this.checkCancelled(a);
       a.container = `fc-files-${this.suffix(job)}-${index}`;
       await this.dockerChecked(["run", "--pull=never", "--rm", "-i", "--name", a.container, ...a.labels,
@@ -216,7 +217,7 @@ export class Sandbox implements Runner {
     await this.removeContainer(a.container);
     await this.removeContainer(a.proxy);
     const result = await this.dockerExec(["network", "rm", a.network]);
-    if (result.code !== 0 && !result.stderr.includes("not found")) throw new Error("任务网络清理失败");
+    if (result.code !== 0 && !result.stderr.includes("not found")) throw new Error(L("任务网络清理失败", "Task network cleanup failed"));
   }
   async stop(sessionId: string): Promise<void> {
     const a = this.active.get(sessionId);
@@ -237,14 +238,14 @@ export class Sandbox implements Runner {
     let deadline: NodeJS.Timeout | undefined;
     try {
       await Promise.race([a.finished, new Promise<never>((_, reject) => {
-        deadline = setTimeout(() => reject(new Error("停止尚未确认，任务初始化或清理仍未退出")), 15_000);
+        deadline = setTimeout(() => reject(new Error(L("停止尚未确认，任务初始化或清理仍未退出", "Stop not confirmed yet: task initialization or cleanup has not exited"))), 15_000);
       })]);
     } finally { if (deadline) clearTimeout(deadline); }
   }
   async steer(sessionId: string, jobId: string, text: string): Promise<{ turnId: string }> {
     const active = this.active.get(sessionId);
     if (!active || active.jobId !== jobId || active.cancelled || !active.harness)
-      throw new SteeringError("指定回合已结束、尚在初始化或已被停止", "rejected");
+      throw new SteeringError(L("指定回合已结束、尚在初始化或已被停止", "That turn has ended, is still initializing, or was stopped"), "rejected");
     return active.harness.steer(text);
   }
   turnId(sessionId: string): string | undefined { return this.active.get(sessionId)?.harness?.activeTurnId; }
@@ -260,14 +261,14 @@ export class Sandbox implements Runner {
       "--filter", `label=generation=${generation}`])).toString().trim().split(/\s+/).filter(Boolean);
     for (const id of networks) {
       const result = await this.dockerExec(["network", "rm", id]);
-      if (result.code !== 0 && !/not found|No such network/i.test(result.stderr)) throw new Error("旧代次网络清理未确认");
+      if (result.code !== 0 && !/not found|No such network/i.test(result.stderr)) throw new Error(L("旧代次网络清理未确认", "Cleanup of the previous generation's network not confirmed"));
     }
   }
   async deleteWorkspace(session: Session): Promise<void> {
-    if (this.active.has(session.id)) throw new Error("任务仍在执行，拒绝删除");
+    if (this.active.has(session.id)) throw new Error(L("任务仍在执行，拒绝删除", "Task is still running; refusing to delete"));
     for (const name of [session.workspaceVolume, session.stateVolume]) {
       const result = await this.dockerExec(["volume", "rm", name]);
-      if (result.code !== 0 && !/no such volume/i.test(result.stderr)) throw new Error("工作区删除未确认");
+      if (result.code !== 0 && !/no such volume/i.test(result.stderr)) throw new Error(L("工作区删除未确认", "Workspace deletion not confirmed"));
     }
   }
   private async helper(session: Session, argv: string[], maxBytes = 64 * 1024 * 1024, job?: Job): Promise<Buffer> {
@@ -288,7 +289,7 @@ export class Sandbox implements Runner {
     let size = patch.length;
     const safeBuffer = (buffer: Buffer): Buffer => {
       for (const secret of [this.secrets.modelKey, this.secrets.appSecret, this.config.provider.baseUrl])
-        if (secret && buffer.includes(Buffer.from(secret))) throw new Error("成果包含服务凭据，已阻止打包和投递");
+        if (secret && buffer.includes(Buffer.from(secret))) throw new Error(L("成果包含服务凭据，已阻止打包和投递", "Result contains service credentials; packaging and delivery blocked"));
       return buffer;
     };
     files["changes.patch"] = safeBuffer(patch);
@@ -298,19 +299,19 @@ export class Sandbox implements Runner {
       const contents = await this.helper(session, ["node", "-e",
         'const fs=require("fs");const p=process.argv[1];if(!fs.lstatSync(p).isFile())process.exit(2);process.stdout.write(fs.readFileSync(p));', `/workspace/${path}`], 8 * 1024 * 1024, job);
       size += contents.length;
-      if (size > 24 * 1024 * 1024) throw new Error("成果超过首版 24 MiB 附件预算；已保留工作区，未截断冒充完整成果");
+      if (size > 24 * 1024 * 1024) throw new Error(L("成果超过首版 24 MiB 附件预算；已保留工作区，未截断冒充完整成果", "Result exceeds the 24 MiB attachment budget; workspace kept, nothing truncated or passed off as complete"));
       files[`new-files/${path}`] = safeBuffer(contents);
     }
     const manifest = { jobId: job.id, sessionId: session.id, baseCommit: session.baseCommit,
       modelStatus: result.status, checks: result.events.filter(e => e.type === "command"),
       fileEvents: result.events.filter(e => e.type === "files"),
       newFiles: names.filter(valid), diffSha256: createHash("sha256").update(patch).digest("hex"),
-      testSummary: job.testSummary ?? "未记录固定检查", createdAt: new Date().toISOString() };
+      testSummary: job.testSummary ?? L("未记录固定检查", "No fixed checks recorded"), createdAt: new Date().toISOString() };
     files["result.json"] = strToU8(redact(JSON.stringify(manifest, null, 2)));
     files["answer.txt"] = strToU8(redact(result.text));
     const path = join(dir, "result.zip");
     const zipped = zipSync(files);
-    if (zipped.byteLength > 24 * 1024 * 1024) throw new Error("完整成果超过24MiB；工作区保留");
+    if (zipped.byteLength > 24 * 1024 * 1024) throw new Error(L("完整成果超过24MiB；工作区保留", "Full result exceeds 24 MiB; workspace kept"));
     writeDurableFile(path, zipped, this.config.dataDir);
     writeDurableFile(join(dir, "changes.patch"), patch, this.config.dataDir);
     return path;
@@ -345,7 +346,7 @@ export class Sandbox implements Runner {
     return events;
   }
   async cleanupOrphans(): Promise<void> {
-    if (this.config.sandbox.nodeId) throw new Error("Runner只能按回合代次清理，禁止bulk cleanup");
+    if (this.config.sandbox.nodeId) throw new Error(L("Runner只能按回合代次清理，禁止bulk cleanup", "Runner may only clean up per turn generation; bulk cleanup is not allowed"));
     const ids = (await this.dockerChecked(["ps", "-aq", "--filter", "label=app=feishu-codex"])).toString().trim().split(/\s+/).filter(Boolean);
     for (const id of ids) await this.removeContainer(id);
     const networks = (await this.dockerChecked(["network", "ls", "-q", "--filter", "label=app=feishu-codex"])).toString().trim().split(/\s+/).filter(Boolean);

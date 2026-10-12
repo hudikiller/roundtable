@@ -5,10 +5,12 @@ import { configSchema, type AppConfig } from "./config.js";
 import { nodeConfigSchema, nodeCapabilities, type NodeConfig } from "./runner/config.js";
 import { Store } from "./store.js";
 import { RunnerRegistry } from "./runner/registry.js";
+import { L, type Locale } from "./i18n.js";
 
 /** Everything the setup wizard collects; the rest uses safe defaults. */
 export interface InitAnswers {
   root: string;
+  locale: Locale;
   appId: string;
   appSecret: string;
   baseUrl: string;
@@ -29,7 +31,7 @@ export interface InitAnswers {
 export function bridgeConfig(a: InitAnswers): AppConfig {
   const data = join(a.root, "data");
   return configSchema.parse({
-    tenantId: a.tenantId, allowedChats: [a.chatId],
+    locale: a.locale, tenantId: a.tenantId, allowedChats: [a.chatId],
     allowedMembers: [...new Set([a.leader, ...a.members])], leaders: [a.leader],
     receiveBackground: true, threadFollowups: "mention", replyMode: "thread", naturalExecution: true, cutoffTime: Date.now(),
     // Bridge mode never calls this provider; real models are configured on Runners.
@@ -50,10 +52,10 @@ export function bridgeConfig(a: InitAnswers): AppConfig {
 /** Runner template for the shared server node, before pairing assigns its identity. */
 export function runnerTemplate(a: InitAnswers): Omit<NodeConfig, "nodeId" | "token"> {
   const staged = nodeConfigSchema.parse({
-    bridgeUrl: `https://127.0.0.1:${a.port}`, caFile: join(a.root, "data/tls/ca.crt"),
+    locale: a.locale, bridgeUrl: `https://127.0.0.1:${a.port}`, caFile: join(a.root, "data/tls/ca.crt"),
     nodeId: "00000000-0000-4000-8000-000000000000", token: "pending".repeat(8),
     name: "team-runner", ownerId: a.leader, dataDir: join(a.root, "runner/state"), capacity: 1,
-    provider: { baseUrl: a.baseUrl, model: a.codingModel, label: "团队服务器" }, modelKeyEnv: "CODEX_MODEL_API_KEY",
+    provider: { baseUrl: a.baseUrl, model: a.codingModel, label: L("团队服务器", "Team server") }, modelKeyEnv: "CODEX_MODEL_API_KEY",
     projects: [{ id: a.projectId, path: a.projectPath, ref: "HEAD", checks: [["node", "--test"]] }],
     sandbox: { image: "feishu-codex-task:runner-v1", egressHosts: ["registry.npmjs.org"] },
   });
@@ -69,7 +71,7 @@ function secretFile(path: string, content: string): void {
 /** Write config.json and .env for the Bridge; refuses to overwrite an existing deployment. */
 export function writeBridge(a: InitAnswers): { configFile: string; envFile: string } {
   const configFile = join(a.root, "config.json"), envFile = join(a.root, ".env");
-  if (existsSync(configFile)) throw new Error("config.json 已存在，向导不会覆盖现有部署");
+  if (existsSync(configFile)) throw new Error(L("config.json 已存在，向导不会覆盖现有部署", "config.json already exists; the wizard won't overwrite an existing deployment"));
   secretFile(configFile, `${JSON.stringify({ ...bridgeConfig(a), dataDir: "./data" }, null, 2)}\n`);
   secretFile(envFile, `FEISHU_APP_ID=${a.appId}\nFEISHU_APP_SECRET=${a.appSecret}\nBRIDGE_MODEL_API_KEY=${a.intentKey}\n`);
   return { configFile, envFile };
@@ -81,7 +83,7 @@ export function writeBridge(a: InitAnswers): { configFile: string; envFile: stri
  */
 export function pairLocalRunner(a: InitAnswers): { runnerFile: string; nodeId: string } {
   const dir = join(a.root, "runner"), runnerFile = join(dir, "runner.json");
-  if (existsSync(runnerFile)) throw new Error("runner/runner.json 已存在，向导不会重复配对");
+  if (existsSync(runnerFile)) throw new Error(L("runner/runner.json 已存在，向导不会重复配对", "runner/runner.json already exists; the wizard won't pair again"));
   const config = { ...bridgeConfig(a), dataDir: join(a.root, "data") };
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   const store = new Store(join(config.dataDir, "control.sqlite"));

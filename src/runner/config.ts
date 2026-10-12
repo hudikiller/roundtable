@@ -3,10 +3,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname, isAbsolute } from "node:path";
 import { createHash } from "node:crypto";
 import { configSchema, type AppConfig } from "../config.js";
+import { L, setLocale } from "../i18n.js";
 import type { Capabilities } from "./protocol.js";
 
 const script = z.object({ argv: z.array(z.string().min(1)).min(1), approvedVersion: z.string().min(1) });
 export const nodeConfigSchema = z.object({
+  locale: z.enum(["en", "zh"]).default("en"),
   bridgeUrl: z.url().refine(s => new URL(s).protocol === "https:"),
   caFile: z.string().refine(isAbsolute), nodeId: z.string().uuid(), token: z.string().min(32),
   name: z.string().regex(/^[a-zA-Z0-9_-]+$/), ownerId: z.string().min(1),
@@ -33,7 +35,7 @@ export function nodeCapabilities(c: NodeConfig, ready: boolean): Capabilities {
     projects: c.projects.map(p => ({ id: p.id, version: projectVersion(c, p.id), profileLabel: c.provider.label, ready })) };
 }
 export function sandboxConfig(c: NodeConfig): AppConfig {
-  return configSchema.parse({ tenantId: "node", allowedChats: ["node"], allowedMembers: [c.ownerId],
+  return configSchema.parse({ locale: c.locale, tenantId: "node", allowedChats: ["node"], allowedMembers: [c.ownerId],
     dataDir: c.dataDir, provider: c.provider, repositories: c.projects,
     defaultRepo: c.projects[0]?.id, concurrency: c.capacity,
     sandbox: { ...c.sandbox, nodeId: c.nodeId, image: c.sandbox.image } });
@@ -42,7 +44,8 @@ export function loadNode(path = process.env.FEISHU_RUNNER_CONFIG || "runner.json
   const file = resolve(path), env = resolve(dirname(file), ".env");
   if (existsSync(env)) process.loadEnvFile(env);
   const config = nodeConfigSchema.parse(JSON.parse(readFileSync(file, "utf8")));
+  setLocale(config.locale);
   const modelKey = process.env[config.modelKeyEnv] || "";
-  if (!modelKey || modelKey === "replace_me") throw new Error("在节点本机 .env 配置项目模型 Key，不能发送到群聊。");
+  if (!modelKey || modelKey === "replace_me") throw new Error(L("在节点本机 .env 配置项目模型 Key，不能发送到群聊。", "Set the project model key in the .env on this node. Never send it to the group chat."));
   return { config, modelKey };
 }

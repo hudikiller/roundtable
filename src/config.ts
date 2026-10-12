@@ -2,8 +2,11 @@ import { existsSync, readFileSync, mkdirSync, chmodSync } from "node:fs";
 import { resolve, dirname, isAbsolute } from "node:path";
 import { z } from "zod";
 import { isIP } from "node:net";
+import { setLocale, L } from "./i18n.js";
 
 export const configSchema = z.object({
+  // Interface language: chat replies, cards and the language models are asked to answer in.
+  locale: z.enum(["en", "zh"]).default("en"),
   tenantId: z.string().min(1),
   allowedChats: z.array(z.string().min(1)).min(1),
   allowedMembers: z.array(z.string().min(1)).min(1),
@@ -14,12 +17,12 @@ export const configSchema = z.object({
   naturalExecution: z.boolean().default(false),
   cutoffTime: z.number().int().nonnegative().default(0),
   provider: z.object({
-    baseUrl: z.url().refine(v => new URL(v).protocol === "https:", "provider 必须使用 HTTPS"),
+    baseUrl: z.url().refine(v => new URL(v).protocol === "https:", { error: () => L("provider 必须使用 HTTPS", "provider must use HTTPS") }),
     model: z.string().min(1),
   }),
   repositories: z.array(z.object({
     id: z.string().regex(/^[a-zA-Z0-9_-]+$/),
-    path: z.string().refine(isAbsolute, "仓库路径必须是绝对路径"),
+    path: z.string().refine(isAbsolute, { error: () => L("仓库路径必须是绝对路径", "Repository path must be absolute") }),
     ref: z.string().default("HEAD"),
     checks: z.array(z.array(z.string().min(1)).min(1)).default([]),
     initialize: z.object({ argv: z.array(z.string().min(1)).min(1), approvedVersion: z.string().min(1) }).optional(),
@@ -72,7 +75,7 @@ export const configSchema = z.object({
       webSearch: z.boolean().default(true),
     }).optional(),
     intentModel: z.object({
-      baseUrl: z.url().refine(v => new URL(v).protocol === "https:", "意图识别模型必须使用 HTTPS"),
+      baseUrl: z.url().refine(v => new URL(v).protocol === "https:", { error: () => L("意图识别模型必须使用 HTTPS", "Intent model must use HTTPS") }),
       model: z.string().min(1),
       keyEnv: z.string().regex(/^[A-Z][A-Z0-9_]*$/).default("BRIDGE_MODEL_API_KEY"),
       timeoutMs: z.number().int().min(1000).max(60_000).default(15_000),
@@ -80,11 +83,11 @@ export const configSchema = z.object({
   }).optional(),
 }).superRefine((c, ctx) => {
   if (new Set(c.repositories.map(r => r.id)).size !== c.repositories.length)
-    ctx.addIssue({ code: "custom", message: "仓库 id 重复" });
+    ctx.addIssue({ code: "custom", message: L("仓库 id 重复", "Duplicate repository id") });
   if (c.defaultRepo && !c.repositories.some(r => r.id === c.defaultRepo))
-    ctx.addIssue({ code: "custom", message: "defaultRepo 不在允许仓库列表中" });
+    ctx.addIssue({ code: "custom", message: L("defaultRepo 不在允许仓库列表中", "defaultRepo is not in the allowed repositories") });
   if (c.leaders.some(id => !c.allowedMembers.includes(id)))
-    ctx.addIssue({ code: "custom", message: "Leader 必须也是允许成员" });
+    ctx.addIssue({ code: "custom", message: L("Leader 必须也是允许成员", "Leaders must also be allowed members") });
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
@@ -96,6 +99,7 @@ export function loadEnvironment(configPath = process.env.FEISHU_CODEX_CONFIG || 
   if (existsSync(envFile)) process.loadEnvFile(envFile);
   const raw: unknown = JSON.parse(readFileSync(resolve(configPath), "utf8"));
   const config = configSchema.parse(raw);
+  setLocale(config.locale);
   bridgeOnly ||= !!config.runnerBridge;
   config.dataDir = resolve(dirname(resolve(configPath)), config.dataDir);
   const secrets = {
@@ -105,9 +109,9 @@ export function loadEnvironment(configPath = process.env.FEISHU_CODEX_CONFIG || 
     intentKey: config.runnerBridge?.intentModel ? process.env[config.runnerBridge.intentModel.keyEnv] || "" : undefined,
   };
   if (secrets.intentKey !== undefined && (!secrets.intentKey || secrets.intentKey === "replace_me"))
-    throw new Error("已配置 Bridge 意图识别模型，但本机 .env 缺少对应 Key。");
+    throw new Error(L("已配置 Bridge 意图识别模型，但本机 .env 缺少对应 Key。", "A Bridge intent model is configured, but the local .env is missing its key."));
   if ([secrets.appId, secrets.appSecret, ...(bridgeOnly ? [] : [secrets.modelKey])].some(v => !v || v === "replace_me"))
-    throw new Error("缺少应用或模型凭据；先运行 npm run setup。密钥仅填写在本机 .env。");
+    throw new Error(L("缺少应用或模型凭据；先运行 npm run setup。密钥仅填写在本机 .env。", "Missing app or model credentials. Run npm run setup first. Secrets go only in the local .env."));
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 });
   chmodSync(config.dataDir, 0o700);
   return { config, secrets, configPath: resolve(configPath) };

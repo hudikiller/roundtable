@@ -5,6 +5,7 @@ import type { IncomingMessage } from "./types.js";
 import type { GroupAgent } from "./group.js";
 import { textOf, type Historical } from "./platform-context.js";
 import { errorText, log } from "./log.js";
+import { L } from "./i18n.js";
 
 type Lister = Pick<Client["im"]["message"], "list">;
 
@@ -20,7 +21,7 @@ export async function importGroupHistory(messages: Lister, config: AppConfig, se
     const app = sender?.sender_type === "app" && sender.id === secrets.appId;
     const member = sender?.sender_type === "user" && config.allowedMembers.includes(sender.id ?? "");
     if (!item.message_id || item.chat_id !== chat || (!app && !member)) return;
-    let text = textOf(item) ?? `[${item.msg_type ?? "未知"}消息]`;
+    let text = textOf(item) ?? L(`[${item.msg_type ?? "未知"}消息]`, `[${item.msg_type ?? "unknown"} message]`);
     for (const mention of item.mentions ?? []) if (mention.key) text = text.replaceAll(mention.key, `@${mention.name ?? ""}`);
     const m: IncomingMessage = { tenantId: tenant, chatId: chat, messageId: item.message_id, senderId: sender!.id!,
       senderName: sender!.id!, senderType: app ? "bot" : "user", text, mentionedBot: false,
@@ -40,7 +41,7 @@ export async function importGroupHistory(messages: Lister, config: AppConfig, se
     do {
       const res = await messages.list({ params: { container_id_type: type, container_id: id, sort_type: "ByCreateTimeAsc",
         page_size: 50, ...(token ? { page_token: token } : {}) } });
-      if (res.code !== 0) throw new Error(`群历史读取失败 (${res.code})`);
+      if (res.code !== 0) throw new Error(L(`群历史读取失败 (${res.code})`, `Failed to read group history (${res.code})`));
       for (const item of res.data?.items ?? []) {
         save(item);
         if (type === "chat" && item.thread_id) threads.add(item.thread_id);

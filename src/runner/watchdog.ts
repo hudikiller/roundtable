@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { exec } from "../process.js";
 import { ContainerTermination } from "../container-termination.js";
+import { L } from "../i18n.js";
 
 export interface LeaseGuard { renew(ms: number): void; disarm(): void; stopped: boolean }
 export function startGuard(nodeId: string, runId: string, generation: number, leaseMs: number, maxMs: number,
@@ -25,7 +26,7 @@ export function startGuard(nodeId: string, runId: string, generation: number, le
 async function guardMain(): Promise<void> {
   const [, , , nodeId, runId, gen, initial, duration, context] = process.argv;
   if (!nodeId || !runId || !/^[a-f0-9-]{36}$/.test(nodeId) || !/^[a-f0-9-]{36}$/.test(runId) || !/^\d+$/.test(gen ?? ""))
-    throw new Error("看门狗参数不合法");
+    throw new Error(L("看门狗参数不合法", "Invalid watchdog arguments"));
   const args = (a: string[]) => context ? ["--context", context, ...a] : a;
   let deadline = performance.now() + Number(initial), wallDeadline = Date.now() + Number(initial), disarmed = false, stopping = false;
   const started = performance.now(), wallStarted = Date.now();
@@ -39,13 +40,13 @@ async function guardMain(): Promise<void> {
       // A launcher may still be completing an in-flight docker request after the parent exits.
       for (let pass = 0; pass < 20; pass++) {
         const containers = await exec("docker", args(["ps", "-aq", ...filters]), { timeout: 5000 });
-        if (containers.code !== 0) throw new Error("看门狗无法访问Docker");
+        if (containers.code !== 0) throw new Error(L("看门狗无法访问Docker", "The watchdog cannot reach Docker"));
         for (const id of containers.stdout.toString().trim().split(/\s+/).filter(Boolean)) await term.remove(id);
         const networks = await exec("docker", args(["network", "ls", "-q", ...filters]), { timeout: 5000 });
-        if (networks.code !== 0) throw new Error("看门狗无法查询网络");
+        if (networks.code !== 0) throw new Error(L("看门狗无法查询网络", "The watchdog cannot list networks"));
         for (const id of networks.stdout.toString().trim().split(/\s+/).filter(Boolean)) {
           const removed = await exec("docker", args(["network", "rm", id]));
-          if (removed.code !== 0 && !/not found|No such network/i.test(removed.stderr)) throw new Error("看门狗网络终止未确认");
+          if (removed.code !== 0 && !/not found|No such network/i.test(removed.stderr)) throw new Error(L("看门狗网络终止未确认", "The watchdog could not confirm the network was removed"));
         }
         await new Promise(resolve => setTimeout(resolve, 500));
       }

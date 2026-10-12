@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import type { ClientRequest } from "node:http";
 import type { Assignment, Capabilities, Envelope, Chunk, Control } from "./protocol.js";
+import { L } from "../i18n.js";
 
 export class NodeAuthenticationError extends Error {}
 export class BridgeClient {
@@ -10,36 +11,36 @@ export class BridgeClient {
   private requests = new Set<ClientRequest>();
   private closed = false;
   constructor(private baseUrl: string, caFile: string, private token = "") {
-    if (new URL(baseUrl).protocol !== "https:") throw new Error("Bridge 必须使用HTTPS");
+    if (new URL(baseUrl).protocol !== "https:") throw new Error(L("Bridge 必须使用HTTPS", "Bridge must use HTTPS"));
     this.ca = readFileSync(caFile);
   }
   private call<T>(path: string, input: Buffer, headers: Record<string, string> = {}, timeout = 30_000): Promise<T> {
-    if (this.closed) return Promise.reject(new Error("Bridge客户端已关闭"));
+    if (this.closed) return Promise.reject(new Error(L("Bridge客户端已关闭", "Bridge client is closed")));
     const url = new URL(path, this.baseUrl);
     return new Promise((resolve, reject) => {
       const req = request(url, { method: "POST", ca: this.ca, minVersion: "TLSv1.2", rejectUnauthorized: true,
         headers: { "content-type": "application/json", "content-length": String(input.length),
           ...(this.token ? { authorization: `Bearer ${this.token}` } : {}), ...headers } }, res => {
-        if (res.statusCode === 401) { res.resume(); return reject(new NodeAuthenticationError("节点凭据已撤销或无效")); }
+        if (res.statusCode === 401) { res.resume(); return reject(new NodeAuthenticationError(L("节点凭据已撤销或无效", "Node credentials were revoked or are invalid"))); }
         if ((res.statusCode ?? 500) >= 300 && (res.statusCode ?? 500) < 400) {
-          res.resume(); return reject(new Error("Bridge 禁止重定向，未转发凭据"));
+          res.resume(); return reject(new Error(L("Bridge 禁止重定向，未转发凭据", "Bridge redirects are not allowed; credentials were not forwarded")));
         }
         const chunks: Buffer[] = []; let size = 0;
         res.on("data", (b: Buffer) => {
           size += b.length;
-          if (size > 8 * 1024 * 1024) { res.destroy(); reject(new Error("Bridge响应超过8MiB")); }
+          if (size > 8 * 1024 * 1024) { res.destroy(); reject(new Error(L("Bridge响应超过8MiB", "Bridge response exceeded 8 MiB"))); }
           else chunks.push(b);
         });
         res.on("error", reject);
         res.on("end", () => {
           try {
             const value = JSON.parse(Buffer.concat(chunks).toString());
-            if (res.statusCode !== 200) reject(new Error(`Bridge 请求失败 (${res.statusCode}): ${value.error ?? "unknown"}`));
+            if (res.statusCode !== 200) reject(new Error(L(`Bridge 请求失败 (${res.statusCode}): ${value.error ?? "unknown"}`, `Bridge request failed (${res.statusCode}): ${value.error ?? "unknown"}`)));
             else resolve(value as T);
           } catch (e) { reject(e); }
         });
       });
-      req.setTimeout(timeout, () => req.destroy(new Error("Bridge HTTPS请求超时")));
+      req.setTimeout(timeout, () => req.destroy(new Error(L("Bridge HTTPS请求超时", "Bridge HTTPS request timed out"))));
       this.requests.add(req);
       req.on("close", () => this.requests.delete(req));
       req.on("error", reject); req.end(input);
@@ -63,6 +64,6 @@ export class BridgeClient {
   }
   close(): void {
     this.closed = true;
-    for (const req of this.requests) req.destroy(new Error("Runner正在关闭，待上传事件保留"));
+    for (const req of this.requests) req.destroy(new Error(L("Runner正在关闭，待上传事件保留", "Runner is shutting down; pending events are kept for upload")));
   }
 }

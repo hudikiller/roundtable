@@ -3,6 +3,7 @@ import type { CardControls, Job, OutboxEntry, RunEvent } from "./types.js";
 import type { Store } from "./store.js";
 import { toCard } from "./feishu.js";
 import { errorText, log, redact } from "./log.js";
+import { L } from "./i18n.js";
 
 interface Progress {
   startedAt: number;
@@ -18,7 +19,7 @@ interface Progress {
 }
 const UPDATE_MS = 3000;
 const mark = { pending: "⬜", inProgress: "🔄", completed: "✅" } as const;
-const elapsed = (ms: number) => { const s = Math.round(ms / 1000); return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`; };
+const elapsed = (ms: number) => { const s = Math.round(ms / 1000); return s < 60 ? L(`${s} 秒`, `${s}s`) : L(`${Math.floor(s / 60)} 分 ${s % 60} 秒`, `${Math.floor(s / 60)}m ${s % 60}s`); };
 
 /**
  * Claude Tag-style live checklist: the task's acknowledgement card is edited in place while the turn
@@ -68,16 +69,18 @@ export class ProgressCards {
   render(job: Job, ack: OutboxEntry): string {
     const p = this.state(job);
     const done = p.final, running = !done;
-    const states: Partial<Record<Job["status"], string>> = { completed: "已完成", failed: "失败", stopped: "已停止", needs_recovery: "待恢复" };
-    const head = (ack.text ?? "").replace(/\n?状态：排队\s*$/m, "").trim();
-    const lines = [head, `状态：${running ? `进行中（已用时 ${elapsed(this.now() - p.startedAt)}）` : `${states[done!] ?? done}（用时 ${elapsed(this.now() - p.startedAt)}）`}`];
-    if (p.plan.length) lines.push("", "**计划**", ...p.plan.map(s => `${mark[s.status]} ${s.step}`));
+    const states: Partial<Record<Job["status"], string>> = { completed: L("已完成", "Done"), failed: L("失败", "Failed"), stopped: L("已停止", "Stopped"), needs_recovery: L("待恢复", "Needs recovery") };
+    const head = (ack.text ?? "").replace(/\n?(?:状态：排队|Status: queued)\s*$/m, "").trim();
+    const lines = [head, running ? L(`状态：进行中（已用时 ${elapsed(this.now() - p.startedAt)}）`, `Status: running (${elapsed(this.now() - p.startedAt)} so far)`)
+      : L(`状态：${states[done!] ?? done}（用时 ${elapsed(this.now() - p.startedAt)}）`, `Status: ${states[done!] ?? done} (took ${elapsed(this.now() - p.startedAt)})`)];
+    if (p.plan.length) lines.push("", L("**计划**", "**Plan**"), ...p.plan.map(s => `${mark[s.status]} ${s.step}`));
     const recent = p.commands.slice(-6);
-    if (recent.length) lines.push("", "**最近操作**", ...recent.map(c => `${c.state === "ok" ? "✅" : c.state === "failed" ? "❌" : "⏳"} \`${redact(c.command).replace(/`/g, "'").slice(0, 120)}\``));
-    if (p.files.size) lines.push("", `**改动文件**：${[...p.files].slice(0, 12).map(f => `\`${f.replace(/^\/workspace\//, "")}\``).join("、")}${p.files.size > 12 ? ` 等 ${p.files.size} 个` : ""}`);
-    if (p.checks.length) lines.push("", "**固定检查**", ...p.checks.map(c => `${c.ok ? "✅" : "❌"} \`${c.command}\``));
+    if (recent.length) lines.push("", L("**最近操作**", "**Recent actions**"), ...recent.map(c => `${c.state === "ok" ? "✅" : c.state === "failed" ? "❌" : "⏳"} \`${redact(c.command).replace(/`/g, "'").slice(0, 120)}\``));
+    if (p.files.size) lines.push("", `${L("**改动文件**：", "**Changed files**: ")}${[...p.files].slice(0, 12).map(f => `\`${f.replace(/^\/workspace\//, "")}\``).join(L("、", ", "))}${p.files.size > 12 ? L(` 等 ${p.files.size} 个`, ` and more (${p.files.size} total)`) : ""}`);
+    if (p.checks.length) lines.push("", L("**固定检查**", "**Checks**"), ...p.checks.map(c => `${c.ok ? "✅" : "❌"} \`${c.command}\``));
     const template = !done ? "blue" as const : done === "completed" ? "green" as const : done === "stopped" ? "grey" as const : "red" as const;
-    const title = `${job.mode === "execute" ? "执行" : "讨论"}${running ? "中" : states[done!] ?? ""} · 任务 ${job.id.slice(0, 8)}`;
+    const title = L(`${job.mode === "execute" ? "执行" : "讨论"}${running ? "中" : states[done!] ?? ""} · 任务 ${job.id.slice(0, 8)}`,
+      `${running ? (job.mode === "execute" ? "Running" : "Discussing") : `${job.mode === "execute" ? "Execution" : "Discussion"} ${(states[done!] ?? "").toLowerCase()}`} · Task ${job.id.slice(0, 8)}`);
     const controls: CardControls | undefined = ack.controls ? { ...ack.controls, stop: running && ack.controls.stop } : undefined;
     return toCard(lines.join("\n"), { title, template }, controls);
   }

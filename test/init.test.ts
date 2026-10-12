@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, statSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bridgeConfig, writeBridge, pairLocalRunner, systemdUnits, type InitAnswers } from "../src/init.js";
+import { bridgeConfig, runnerTemplate, writeBridge, pairLocalRunner, systemdUnits, type InitAnswers } from "../src/init.js";
 import { nodeConfigSchema } from "../src/runner/config.js";
 import { configSchema } from "../src/config.js";
 import { Store } from "../src/store.js";
 import { RunnerRegistry } from "../src/runner/registry.js";
 
 function answers(root: string): InitAnswers {
-  return { root, appId: "cli_test", appSecret: "secret-x", baseUrl: "https://provider.example/v1", intentModel: "fast-1", intentKey: "k-intent",
+  return { root, locale: "zh", appId: "cli_test", appSecret: "secret-x", baseUrl: "https://provider.example/v1", intentModel: "fast-1", intentKey: "k-intent",
     codingModel: "code-1", codingKey: "k-code", effort: "medium", tenantId: "tenant-1", chatId: "oc_group", leader: "ou_lead",
     members: ["ou_lead", "ou_mate"], projectId: "feedbackdesk", projectPath: join(root, "data/fixture-repo"), port: 9443 };
 }
@@ -61,4 +61,13 @@ test("一键初始化：systemd 单元使用本仓库绝对路径", () => {
   const units = systemdUnits("/opt/roundtable", "/usr/bin/node");
   assert.match(units["roundtable.service"]!, /ExecStart=\/usr\/bin\/node \/opt\/roundtable\/dist\/src\/main.js/);
   assert.match(units["roundtable-runner.service"]!, /FEISHU_RUNNER_CONFIG=\/opt\/roundtable\/runner\/runner.json[\s\S]*KillMode=process/);
+});
+
+test("一键初始化：向导选择的界面语言写入 Bridge 配置与 Runner 模板", () => {
+  const root = mkdtempSync(join(tmpdir(), "rt-init-"));
+  try {
+    const a: InitAnswers = { ...answers(root), locale: "en" };
+    assert.equal(bridgeConfig(a).locale, "en"); assert.equal(runnerTemplate(a).locale, "en");
+    assert.equal(bridgeConfig(answers(root)).locale, "zh"); assert.equal(runnerTemplate(answers(root)).locale, "zh");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

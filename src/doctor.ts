@@ -8,6 +8,7 @@ import { Feishu } from "./feishu.js";
 import { checked } from "./process.js";
 import { errorText, setSecrets } from "./log.js";
 import type { Session, Job } from "./types.js";
+import { L } from "./i18n.js";
 
 async function doctor(): Promise<void> {
   const { config, secrets } = loadEnvironment();
@@ -17,7 +18,7 @@ async function doctor(): Promise<void> {
     try { results.push({ check: name, ok: true, detail: await work() }); }
     catch (e) { results.push({ check: name, ok: false, detail: errorText(e) }); }
   };
-  await check("node", async () => { if (!process.version.startsWith("v24.")) throw new Error("需要 Node 24"); return process.version; });
+  await check("node", async () => { if (!process.version.startsWith("v24.")) throw new Error(L("需要 Node 24", "Node 24 is required")); return process.version; });
   await check("docker", async () => JSON.parse((await checked("docker", ["info", "--format", "{{json .}}"])).toString()).Driver);
   await check("task-image", async () => { await checked("docker", ["image", "inspect", config.sandbox.image]); return config.sandbox.image; });
   await check("sqlite", async () => {
@@ -39,9 +40,9 @@ async function doctor(): Promise<void> {
     return repos;
   });
   results.push({ check: "model", ok: true,
-    detail: "默认不调用模型。使用 --live 才执行付费的真实只读工具测试；模型列表不代表授权或兼容性。" });
+    detail: L("默认不调用模型。使用 --live 才执行付费的真实只读工具测试；模型列表不代表授权或兼容性。", "No model is called by default. Use --live to run a paid, real read-only tool test; a model list does not imply access or compatibility.") });
   results.push({ check: "disk-budget", ok: true,
-    detail: { MiB: config.sandbox.diskMiB, enforcement: "2秒监测并停止容器，不是硬磁盘配额" } });
+    detail: { MiB: config.sandbox.diskMiB, enforcement: L("2秒监测并停止容器，不是硬磁盘配额", "Checked every 2 seconds and the container is stopped; not a hard disk quota") } });
   if (process.argv.includes("--live")) {
     const sandbox = new Sandbox(config, secrets);
     const id = randomUUID();
@@ -49,12 +50,12 @@ async function doctor(): Promise<void> {
       rootMessageId: "doctor", initiatorId: config.allowedMembers[0]!, workspaceVolume: `fc-work-${id}`,
       stateVolume: `fc-state-${id}`, initialized: false, review: "open", createdAt: Date.now() };
     const job: Job = { id: randomUUID(), sessionId: id, messageId: "doctor", senderId: session.initiatorId,
-      mode: "discuss", prompt: "必须调用 shell 工具执行 pwd 和 ls -la，读取隔离空工作区，再用中文报告真实目录和可见文件。不要修改文件。",
+      mode: "discuss", prompt: L("必须调用 shell 工具执行 pwd 和 ls -la，读取隔离空工作区，再用中文报告真实目录和可见文件。不要修改文件。", "You must call the shell tool to run pwd and ls -la in the isolated empty workspace, then report the real directory and visible files in English. Do not modify any files."),
       status: "running", createdAt: Date.now() };
     await check("model-live", async () => {
       const result = await sandbox.run(session, job, () => {});
-      if (result.status !== "completed") throw new Error(result.error ?? "模型失败");
-      if (!result.events.some(e => e.type === "command" && e.exitCode === 0)) throw new Error("模型未完成真实工具调用");
+      if (result.status !== "completed") throw new Error(result.error ?? L("模型失败", "Model failed"));
+      if (!result.events.some(e => e.type === "command" && e.exitCode === 0)) throw new Error(L("模型未完成真实工具调用", "Model did not complete a real tool call"));
       return { response: result.text, commandExitCodes: result.events.filter(e => e.type === "command").map(e => e.exitCode) };
     });
     await sandbox.close();

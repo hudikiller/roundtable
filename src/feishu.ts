@@ -3,6 +3,7 @@ import { createLarkChannel, LarkChannelError, type CardActionEvent, type Normali
 import type { AppConfig, Secrets } from "./config.js";
 import type { CardControls, IncomingMessage, Messenger, OutboxEntry } from "./types.js";
 import { errorText, log } from "./log.js";
+import { L } from "./i18n.js";
 
 export function normalizeMessage(m: NormalizedMessage): IncomingMessage | undefined {
   const raw = m.raw as RawMessageEvent | undefined;
@@ -26,7 +27,7 @@ export function normalizeMessage(m: NormalizedMessage): IncomingMessage | undefi
   };
 }
 
-const EFFORTS = [["low", "低"], ["medium", "中"], ["high", "高"], ["xhigh", "超高"]] as const;
+const EFFORTS = () => [["low", L("低", "Low")], ["medium", L("中", "Medium")], ["high", L("高", "High")], ["xhigh", L("超高", "Extra high")]] as const;
 const plain = (content: string) => ({ tag: "plain_text", content });
 /** Callback value carried by every card control; the Bridge re-checks permissions on click. */
 export interface CardValue { a: "model" | "effort" | "stop" | "accept" | "reject"; scope: "topic" | "group"; target: string }
@@ -36,13 +37,13 @@ function controlElements(c: CardControls): object[] {
     tag: "select_static", name: a, placeholder: plain(placeholder), ...(initial ? { initial_option: initial } : {}),
     options: options.map(([v, label]) => ({ text: plain(label), value: v })), behaviors: [{ type: "callback", value: value(a) }] });
   const elements: object[] = [{ tag: "column_set", columns: [
-    { tag: "column", width: "weighted", weight: 1, elements: [select("model", "模型", c.models.map(m => [m.id, m.label] as const), c.model)] },
-    { tag: "column", width: "weighted", weight: 1, elements: [select("effort", "思考强度", EFFORTS, c.effort)] }] }];
-  if (c.stop) elements.push({ tag: "button", text: plain("停止"), type: "danger", behaviors: [{ type: "callback", value: value("stop") }] });
+    { tag: "column", width: "weighted", weight: 1, elements: [select("model", L("模型", "Model"), c.models.map(m => [m.id, m.label] as const), c.model)] },
+    { tag: "column", width: "weighted", weight: 1, elements: [select("effort", L("思考强度", "Effort"), EFFORTS(), c.effort)] }] }];
+  if (c.stop) elements.push({ tag: "button", text: plain(L("停止", "Stop")), type: "danger", behaviors: [{ type: "callback", value: value("stop") }] });
   if (c.review) elements.push({ tag: "form", name: "review", elements: [
-    { tag: "input", name: "feedback", placeholder: plain("退回意见（退回时填写）") },
-    { tag: "button", name: "accept", text: plain("接受"), type: "primary", form_action_type: "submit", behaviors: [{ type: "callback", value: value("accept") }] },
-    { tag: "button", name: "reject", text: plain("退回"), type: "default", form_action_type: "submit", behaviors: [{ type: "callback", value: value("reject") }] }] });
+    { tag: "input", name: "feedback", placeholder: plain(L("退回意见（退回时填写）", "Feedback (if sending back)")) },
+    { tag: "button", name: "accept", text: plain(L("接受", "Accept")), type: "primary", form_action_type: "submit", behaviors: [{ type: "callback", value: value("accept") }] },
+    { tag: "button", name: "reject", text: plain(L("退回", "Send back")), type: "default", form_action_type: "submit", behaviors: [{ type: "callback", value: value("reject") }] }] });
   return elements;
 }
 /** Feishu card (JSON 2.0): markdown body, optional header and controls; text <at> tags become card mentions. */
@@ -76,7 +77,7 @@ export class Feishu implements Messenger {
     if (onCard) this.channel.on("cardAction", async event => {
       log("card_action_received", { messageId: event.messageId, tag: event.action.tag });
       try { return (await onCard(event)) ?? undefined; }
-      catch (e) { log("card_action_error", { error: errorText(e) }); return { toast: { type: "error", content: "操作未完成，请稍后再试" } }; }
+      catch (e) { log("card_action_error", { error: errorText(e) }); return { toast: { type: "error", content: L("操作未完成，请稍后再试", "That didn't go through. Please try again later.") } }; }
     });
     this.channel.on("reconnecting", () => log("feishu_reconnecting"));
     this.channel.on("reconnected", () => log("feishu_reconnected"));
@@ -97,13 +98,13 @@ export class Feishu implements Messenger {
         // Claude Tag reacts to show it picked a message up; failure here never blocks the answer.
         const reacted = await this.channel.rawClient.im.messageReaction.create({ path: { message_id: entry.target.messageId },
           data: { reaction_type: { emoji_type: entry.emoji ?? "OnIt" } } });
-        if (reacted.code !== 0 || !reacted.data?.reaction_id) throw new DeliveryError(`飞书表情回应失败 (${reacted.code})`, "failed");
+        if (reacted.code !== 0 || !reacted.data?.reaction_id) throw new DeliveryError(L(`飞书表情回应失败 (${reacted.code})`, `Feishu reaction failed (${reacted.code})`), "failed");
         return { messageId: reacted.data.reaction_id };
       }
       if (entry.purpose === "post") {
         const posted = await this.channel.rawClient.im.message.create({ params: { receive_id_type: "chat_id" },
           data: { receive_id: entry.target.chatId, msg_type: "text", content: JSON.stringify({ text: entry.text ?? "" }), uuid: entry.id } });
-        if (posted.code !== 0 || !posted.data?.message_id) throw new DeliveryError(`飞书群消息发送失败 (${posted.code})`, "failed");
+        if (posted.code !== 0 || !posted.data?.message_id) throw new DeliveryError(L(`飞书群消息发送失败 (${posted.code})`, `Failed to send Feishu group message (${posted.code})`), "failed");
         return { messageId: posted.data.message_id };
       }
       let content: string, msgType: "file" | "text";
@@ -113,10 +114,10 @@ export class Feishu implements Messenger {
           file_type: "stream", file_name: entry.fileName ?? "result.zip", file: await readFile(entry.filePath),
         } });
         if (!file?.file_key)
-          throw new DeliveryError("飞书附件上传未返回 file_key", "failed");
+          throw new DeliveryError(L("飞书附件上传未返回 file_key", "Feishu attachment upload returned no file_key"), "failed");
         uploading = false; msgType = "file"; content = JSON.stringify({ file_key: file.file_key });
       } else {
-        if ((entry.text?.length ?? 0) > 4000) throw new DeliveryError("消息必须在 outbox 中预先分段", "failed");
+        if ((entry.text?.length ?? 0) > 4000) throw new DeliveryError(L("消息必须在 outbox 中预先分段", "Messages must be split into chunks in the outbox first"), "failed");
         msgType = "text"; content = JSON.stringify({ text: entry.text ?? "" });
       }
       // Keep an explicit reference to the task root in either display mode.
@@ -131,20 +132,20 @@ export class Feishu implements Messenger {
       if (!response || response.code !== 0 || !response.data?.message_id)
         response = await send(msgType, content, msgType === "text" ? `${entry.id.slice(0, 30)}-t` : entry.id);
       if (response.code !== 0 || !response.data?.message_id)
-        throw new DeliveryError(`飞书引用回复失败 (${response.code})`, response.code === 99991400 ? "retry" : "failed");
+        throw new DeliveryError(L(`飞书引用回复失败 (${response.code})`, `Feishu quoted reply failed (${response.code})`), response.code === 99991400 ? "retry" : "failed");
       return { messageId: response.data.message_id, rootId: response.data.root_id, threadId: response.data.thread_id };
     } catch (e) {
       if (e instanceof DeliveryError) throw e;
       const status = (e as { response?: { status?: number } })?.response?.status;
-      if (status === 429) throw new DeliveryError("飞书限流，等待补发", "retry");
-      if (uploading) throw new DeliveryError("飞书附件上传未完成，原线程尚未发送", "retry");
+      if (status === 429) throw new DeliveryError(L("飞书限流，等待补发", "Rate-limited by Feishu; will resend"), "retry");
+      if (uploading) throw new DeliveryError(L("飞书附件上传未完成，原线程尚未发送", "Feishu attachment upload did not finish; nothing sent to the thread yet"), "retry");
       if (e instanceof LarkChannelError) {
         if (e.code === "rate_limited" || e.code === "not_connected")
-          throw new DeliveryError(`飞书投递失败：${e.code}`, "retry");
+          throw new DeliveryError(L(`飞书投递失败：${e.code}`, `Feishu delivery failed: ${e.code}`), "retry");
         if (["permission_denied", "target_revoked", "format_error", "ssrf_blocked"].includes(e.code))
-          throw new DeliveryError(`飞书投递失败：${e.code}`, "failed");
+          throw new DeliveryError(L(`飞书投递失败：${e.code}`, `Feishu delivery failed: ${e.code}`), "failed");
         // Timeout/unknown can mean the platform accepted the request.
-        throw new DeliveryError(`飞书发送结果待核对：${e.code}`, "uncertain");
+        throw new DeliveryError(L(`飞书发送结果待核对：${e.code}`, `Feishu send result needs checking: ${e.code}`), "uncertain");
       }
       throw new DeliveryError(errorText(e), "uncertain");
     }
@@ -157,7 +158,7 @@ export class Feishu implements Messenger {
     const chats: { visible: boolean; backgroundReadable: boolean }[] = [];
     for (const chatId of this.config.allowedChats) {
       const result = await this.channel.rawClient.im.chat.get({ path: { chat_id: chatId } });
-      if (result.code !== 0) throw new Error(`飞书群访问失败 (${result.code})`);
+      if (result.code !== 0) throw new Error(L(`飞书群访问失败 (${result.code})`, `Failed to access Feishu group (${result.code})`));
       let backgroundReadable = false;
       try {
         const messages = await this.channel.rawClient.im.message.list({
@@ -169,7 +170,7 @@ export class Feishu implements Messenger {
     }
     return { chats, replyMode: this.config.replyMode,
       mode: this.config.receiveBackground ? "background configured; verify event subscription in console" : "@-only",
-      delivery: "发送与附件权限需真实投递验证；免费诊断不会发送消息。" };
+      delivery: L("发送与附件权限需真实投递验证；免费诊断不会发送消息。", "Send and attachment permissions can only be verified by a real delivery; the free diagnostic does not send messages.") };
   }
   async close(): Promise<void> { await this.channel.disconnect(); }
 }

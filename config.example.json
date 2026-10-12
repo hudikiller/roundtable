@@ -1,4 +1,5 @@
 {
+  "locale": "en",
   "tenantId": "your_tenant_key",
   "allowedChats": ["oc_your_group_chat_id"],
   "allowedMembers": ["ou_member_a_open_id", "ou_member_b_open_id"],

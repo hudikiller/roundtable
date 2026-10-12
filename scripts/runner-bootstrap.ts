@@ -4,12 +4,13 @@ import { loadEnvironment } from "../src/config.js";
 import { createTls } from "../src/runner/tls.js";
 import { checked } from "../src/process.js";
 import { setSecrets, errorText } from "../src/log.js";
+import { L } from "../src/i18n.js";
 
 async function main(): Promise<void> {
-  if (!process.argv[2]) throw new Error("用法：node dist/scripts/runner-bootstrap.js EXISTING_APPROVED_PROJECT_DIR");
+  if (!process.argv[2]) throw new Error(L("用法：node dist/scripts/runner-bootstrap.js EXISTING_APPROVED_PROJECT_DIR", "Usage: node dist/scripts/runner-bootstrap.js EXISTING_APPROVED_PROJECT_DIR"));
   const source = resolve(process.argv[2]);
   const root = resolve("data/staging");
-  if (existsSync(join(root, "config.json"))) throw new Error("staging已存在，不覆盖；继续使用已有配置");
+  if (existsSync(join(root, "config.json"))) throw new Error(L("staging已存在，不覆盖；继续使用已有配置", "staging already exists; not overwriting. Keep using the existing config"));
   const original = loadEnvironment(join(source, "config.json"));
   setSecrets([original.secrets.appSecret, original.secrets.modelKey]);
   mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -29,11 +30,11 @@ async function main(): Promise<void> {
   writeFileSync(join(nodeRoot, ".env"), `CODEX_MODEL_API_KEY=${original.secrets.modelKey}\n`, { mode: 0o600 });
   const template = { bridgeUrl: "https://127.0.0.1:9443", caFile: tls.caFile, name: "team-runner",
     ownerId: original.config.leaders[0] ?? original.config.allowedMembers[0], dataDir: join(nodeRoot, "state"),
-    provider: { ...original.config.provider, label: "本人项目兼容 API（团队节点）" }, capacity: 1,
+    provider: { ...original.config.provider, label: L("本人项目兼容 API（团队节点）", "Your OpenAI-compatible API (team node)") }, capacity: 1,
     projects: [{ id: "feedbackdesk", path: repo, ref: "HEAD", checks: [["node", "--test"]] }],
     sandbox: { ...original.config.sandbox, image: "feishu-codex-task:runner-v1" } };
   writeFileSync(join(nodeRoot, "template.json"), JSON.stringify(template, null, 2), { mode: 0o600 });
   console.log(JSON.stringify({ staging: root, bridgePort: 9443, caFingerprint: tls.caFingerprint, feishuConsumerEnabled: false,
-    modelCredentials: "仅写入节点本机 .env；Bridge配置无模型Key" }));
+    modelCredentials: L("仅写入节点本机 .env；Bridge配置无模型Key", "Written only to the node's local .env; the Bridge config holds no model key") }));
 }
 void main().catch(e => { console.error(errorText(e)); process.exitCode = 1; });

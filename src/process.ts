@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { L } from "./i18n.js";
 
 export async function exec(command: string, args: string[], options: {
   input?: Buffer | string; timeout?: number; maxBytes?: number; cwd?: string;
@@ -21,7 +22,7 @@ export async function exec(command: string, args: string[], options: {
     child.on("close", code => {
       clearTimeout(timer);
       const stderr = Buffer.concat(errors).toString();
-      if (timedOut || oversized) return reject(new Error(timedOut ? `${command} 超时` : `${command} 输出超过上限`));
+      if (timedOut || oversized) return reject(new Error(timedOut ? L(`${command} 超时`, `${command} timed out`) : L(`${command} 输出超过上限`, `${command} output exceeded the limit`)));
       resolve({ stdout: Buffer.concat(out), stderr, code: code ?? -1 });
     });
     child.stdin.end(options.input);
@@ -29,6 +30,6 @@ export async function exec(command: string, args: string[], options: {
 }
 export async function checked(command: string, args: string[], options?: Parameters<typeof exec>[2]): Promise<Buffer> {
   const result = await exec(command, args, options);
-  if (result.code !== 0) throw new Error(`${command} 失败 (${result.code}): ${result.stderr.slice(-2000)}`);
+  if (result.code !== 0) throw new Error(L(`${command} 失败 (${result.code}): ${result.stderr.slice(-2000)}`, `${command} failed (${result.code}): ${result.stderr.slice(-2000)}`));
   return result.stdout;
 }
