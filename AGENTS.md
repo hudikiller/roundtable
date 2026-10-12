@@ -1,8 +1,14 @@
-# 开发约定
+# AGENTS.md
 
-本仓库是 Roundtable：面向飞书/Lark 群聊的团队协作 AI 队友，不导入其他产品的源码、历史或运行数据库。
-主代理负责设计、复杂实现、整合和验证。default 子代理只做明确的只读探查、
-证据整理和独立复核；不得自行派生子代理。派发时 fork_turns=none。
-不得提交凭据、真实聊天记录、运行数据或参与者身份配置。
-使用 Node.js 24、TypeScript 与官方 SDK。变更后执行 npm test 和 npm run build。
-模拟测试与真实模型、真实飞书及真人验收必须分开报告。
+Guidance for AI coding assistants (Codex, Claude Code, etc.) working in this repository.
+
+- Stack: Node.js 24, TypeScript (ESM), official Feishu Channel SDK, pinned `@openai/codex` 0.153.4 App Server over STDIO.
+- After changes run `npm test` and `npm run build`. Add tests for new behaviour; for bugs, add a failing test first.
+- Never weaken permission checks, sandbox limits or credential separation to make tests pass.
+- Never commit credentials, `.env`, real `config.json`/`runner.json`, chat transcripts, member IDs or anything under `data/`.
+- `src/protocol/` is generated (`npm run protocol:generate`); do not edit by hand.
+- User-facing bot text is Simplified Chinese; match surrounding code style and comment density.
+- Report simulated tests, real-model runs, real-Feishu runs and human acceptance separately.
+- Key modules: `src/router.ts` (intent routing & permissions), `src/group.ts` (group agent), `src/intent.ts` (Bridge intent model),
+  `src/jobs.ts` (queue & delivery), `src/runner/*` (Bridge API, registry, node daemon), `src/sandbox.ts` + `src/codex.ts` (execution),
+  `src/feishu.ts` (cards & delivery), `src/progress.ts` (live checklist).

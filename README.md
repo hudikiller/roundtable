@@ -8,7 +8,12 @@
 
 *An AI teammate for Feishu/Lark that listens to the whole room, speaks rarely, and turns discussions into delivered work.*
 
-[English](#english) · [核心能力](#核心能力) · [快速开始](#快速开始how-to-start) · [日常用法](#日常用法) · [配置参考](#配置参考)
+[![CI](https://github.com/hudikiller/roundtable/actions/workflows/ci.yml/badge.svg)](https://github.com/hudikiller/roundtable/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node 24](https://img.shields.io/badge/node-24-339933?logo=node.js&logoColor=white)
+![Feishu / Lark](https://img.shields.io/badge/Feishu%20%2F%20Lark-native-3370FF)
+
+简体中文 · [English](README.en.md) · [核心能力](#核心能力) · [快速开始](#快速开始how-to-start) · [日常用法](#日常用法) · [配置参考](#配置参考)
 
 </div>
 
@@ -116,7 +121,7 @@
 
 ## 快速开始（How to start）
 
-下面带你从零搭一套最小可用环境：**一台 Linux 服务器同时运行 Bridge 和 `team-runner`**，在飞书测试群里跑通主群 Agent 与话题任务。成员电脑接入放在第 9 步。
+下面带你从零搭一套最小可用环境：**一台 Linux 服务器同时运行 Bridge 和 `team-runner`**，在飞书测试群里跑通主群 Agent 与话题任务。成员电脑接入放在第 10 步。
 
 ### 0. 准备
 
@@ -149,7 +154,17 @@ node scripts/extract-model-catalog.mjs ~/.codex/model_catalog.json your-coding-m
 npm run image:build
 ```
 
-### 3. 创建并配置飞书应用
+### 3. 初始化示例项目
+
+Runner 只在**独立的 Git 仓库**里工作。先把自带的 FeedbackDesk 示例复制成一个独立仓库，用来跑通流程：
+
+```bash
+npm run fixture:init      # 生成 data/fixture-repo（独立 Git 仓库），示例配置已指向它
+```
+
+接入你自己的项目时，把 `repositories` 和 Runner 的 `projects` 改成该仓库的绝对路径即可。Runner 只读取它的提交，不会修改你的本地工作区。
+
+### 4. 创建并配置飞书应用
 
 在 [飞书开放平台](https://open.feishu.cn/app) 创建企业自建应用，然后：
 
@@ -173,7 +188,7 @@ npm run image:build
 
 > 同一个应用同一时间只能有一个程序消费长连接事件。测试和生产请用不同的应用，或者先停掉旧服务。
 
-### 4. 生成 Bridge 的 TLS 证书
+### 5. 生成 Bridge 的 TLS 证书
 
 Runner 通过 HTTPS 连接 Bridge。用自带工具生成私有 CA 和服务端证书（SAN 为 `127.0.0.1` 和 `localhost`）：
 
@@ -183,7 +198,7 @@ npm run runner:tls -- /opt/roundtable/data/tls
 
 CA 私钥只留在服务器；只把 `ca.crt` 分发给 Runner。
 
-### 5. 配置 Bridge
+### 6. 配置 Bridge
 
 ```bash
 cp config.example.json config.json
@@ -196,16 +211,19 @@ cp .env.example .env && chmod 600 .env config.json
 
 | 字段 | 怎么填 |
 |---|---|
-| `tenantId` | 消息事件里的 `tenant_key`。先随便填一个，启动后在群里发一条消息，日志中会出现实际值 |
+| `tenantId` | 消息事件里的 `tenant_key` |
 | `allowedChats` | 测试群的 `chat_id`（`oc_…`） |
 | `allowedMembers` / `leaders` | 成员的 `open_id`（`ou_…`）。Leader 必须同时是成员 |
+
+> **怎么拿到这三类 ID：** 先用占位值启动 Bridge（第 7 步），让每位成员在测试群里 @ 一次机器人。日志里会出现
+> `message_ignored`，并带上 `tenantId`、`chatId`、`senderId`，把它们填回配置后重启即可。
 | `runnerBridge.intentModel` | 快模型的 `baseUrl` 和 `model` |
 | `runnerBridge.defaults` / `models` | 默认编码模型、思考强度，以及卡片上可选的模型 |
 | `repositories` | 允许的项目别名。第一次可以直接用自带的 `fixtures/feedbackdesk` |
 
 `provider` 字段在 Bridge 模式下不会调用，保留示例里的占位值即可：真正的编码模型配置在 Runner 上。
 
-### 6. 启动 Bridge
+### 7. 启动 Bridge
 
 ```bash
 FEISHU_CODEX_CONFIG=/opt/roundtable/config.json node dist/src/main.js
@@ -213,7 +231,7 @@ FEISHU_CODEX_CONFIG=/opt/roundtable/config.json node dist/src/main.js
 
 看到日志 `service_ready` 就说明启动成功。如果启用了主群 Agent，几十秒后还会出现 `group_history_imported`。长期运行请使用 `deploy/roundtable.service`。
 
-### 7. 接入 `team-runner`（服务器节点）
+### 8. 接入 `team-runner`（服务器节点）
 
 1. **签发一次性配对码**（10 分钟有效，只在可信终端里使用）：
 
@@ -253,7 +271,7 @@ FEISHU_CODEX_CONFIG=/opt/roundtable/config.json node dist/src/main.js
 
 `team-runner` 由 Leader 登记，并且列在 `sharedNodes` 里，因此所有获准成员都能使用。
 
-### 8. 在飞书里试一试
+### 9. 在飞书里试一试
 
 ```text
 （主群里先不 @，随便聊几句关于导入规则的讨论）
@@ -268,7 +286,7 @@ FEISHU_CODEX_CONFIG=/opt/roundtable/config.json node dist/src/main.js
 - 回答发在这条消息的话题里；
 - 执行时回执卡片会边做边打勾，结束后结果卡片上有“接受 / 退回”按钮。
 
-### 9. 接入成员电脑（可选）
+### 10. 接入成员电脑（可选）
 
 成员电脑上需要 Node 24，以及一个**Linux 容器运行时**。macOS 推荐专用的 Colima profile，避免动到个人默认的 Docker 环境：
 
@@ -289,7 +307,7 @@ ssh -N -L 127.0.0.1:19443:127.0.0.1:9443 runner-forward@your-server
 - `sandbox.dockerContext: colima-feishu-codex`；
 - `ownerId` 填这台电脑主人的 `open_id`。
 
-配对、诊断、运行与第 7 步相同。配好之后，这位成员在群里说“在我电脑上……”，任务就会派到他的电脑。别人要用这台电脑，需要主人或 Leader 授权（“把我的电脑给 @某人 用一下”）。
+配对、诊断、运行与第 8 步相同。配好之后，这位成员在群里说“在我电脑上……”，任务就会派到他的电脑。别人要用这台电脑，需要主人或 Leader 授权（“把我的电脑给 @某人 用一下”）。
 
 更完整的运维说明，包括 macOS LaunchAgent、VPN 假 DNS 处理、撤权、备份恢复和迁移，见 [docs/RUNNER_OPERATIONS.zh-CN.md](docs/RUNNER_OPERATIONS.zh-CN.md)。
 
@@ -366,24 +384,18 @@ FEISHU_RUNNER_CONFIG=… npm run test:sandbox   # 真实 Docker 隔离与资源�
 
 ## English
 
-**Roundtable** brings a Claude Tag–style teammate to Feishu/Lark group chats:
+Roundtable is an AI teammate for Feishu/Lark that listens to the whole room, speaks rarely, and turns discussions into delivered work. It pairs one long-lived group agent with isolated topic sessions and Codex runners on machines you choose. **Full English documentation: [README.en.md](README.en.md).**
 
-- **A group agent that remembers everything.** One long-lived session per group:
-  - it ingests every message, including ones that don't mention it, and imports full history;
-  - when mentioned, it receives everything said since its last turn (older backlog compressed) and searches a full `history.md` for details;
-  - authoritative system state and group memory keep its facts straight.
-- **Restrained proactivity.** It rarely speaks unprompted: only when someone asks something it can clearly answer.
-  - It pauses per-message judgement after ~100 unengaged messages.
-  - It silently routes side remarks to the right task topic: it steers a running turn, continues a finished task, or asks the owner.
-- **Topics are isolated sessions.** Each topic has its own workspace, Codex thread and sandbox; follow-ups in a topic need no @.
-- **Discussion → decisions → assignments.** It produces summaries with @-mentioned owners and opens one topic per assignment.
-- **Natural language is the UI.** A fast intent model understands every request; code enforces all permissions. A bare "停止" (stop) always works without any model.
-- **Runners on machines you choose.** Tasks run on the shared team server or on members' own laptops:
-  - runners long-poll the Bridge over HTTPS, so laptops need no public IP;
-  - pairing, revocable credentials, per-machine grants, leases, watchdogs and deduplicated events.
-- **Visible progress, human decisions.** Feishu cards show a live checklist ticked off in place, plus stop / accept / reject buttons and model pickers. Nothing is pushed or merged automatically.
+## 致谢与声明
 
-Quick start: follow [快速开始](#快速开始how-to-start). Requirements: Node 24, Docker, a Feishu self-built app, and an OpenAI Responses-compatible model provider.
+- 交互模式受 Slack 中 Claude Tag 的频道会话与话题工作会话启发；执行层基于 [OpenAI Codex](https://github.com/openai/codex) App Server，飞书接入基于官方 [Channel SDK](https://www.npmjs.com/package/@larksuite/channel)。
+- 本项目与 Anthropic、OpenAI、字节跳动（飞书 / Lark）均无隶属或合作关系。相关名称和商标归各自所有者所有。
+- `src/protocol/` 由固定版本的 `@openai/codex`（Apache-2.0）生成；第三方许可说明见 [NOTICE](NOTICE)。
+- 本项目会让 AI 在你的机器上执行代码。请先在测试群和示例仓库中试用，并阅读 [SECURITY.md](SECURITY.md) 中的安全模型。
+
+## 参与贡献
+
+欢迎提交 Issue、讨论和 PR，参见 [CONTRIBUTING.md](CONTRIBUTING.md)。如果 Roundtable 对你的团队有帮助，点一个 ⭐ 就是最好的支持。
 
 ## License
 

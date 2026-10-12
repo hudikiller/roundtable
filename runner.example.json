@@ -12,7 +12,7 @@
   },
   "modelKeyEnv": "CODEX_MODEL_API_KEY",
   "projects": [
-    { "id": "feedbackdesk", "path": "/opt/roundtable/fixtures/feedbackdesk", "ref": "HEAD", "checks": [["node", "--test"]] }
+    { "id": "feedbackdesk", "path": "/opt/roundtable/data/fixture-repo", "ref": "HEAD", "checks": [["node", "--test"]] }
   ],
   "sandbox": {
     "image": "feishu-codex-task:runner-v1",

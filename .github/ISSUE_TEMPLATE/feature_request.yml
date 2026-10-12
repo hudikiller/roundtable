@@ -1,0 +1,14 @@
+name: ✨ 功能建议 / Feature request
+description: 提出新的想法或改进
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: 想解决什么问题 / Problem, description: 团队协作中遇到的具体场景 }
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes: { label: 设想的方案 / Proposal }
+  - type: textarea
+    id: alternatives
+    attributes: { label: 其他可选方案 / Alternatives }

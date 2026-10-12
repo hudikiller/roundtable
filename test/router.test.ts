@@ -121,3 +121,18 @@ test("只有当前请求指定 Markdown 附件才设置交付格式，背景不�
     assert.equal(env.store.outbox().filter(e => e.purpose === "acknowledgement").length, 4);
   } finally { env.close(); }
 });
+
+test("未配置的租户/群/成员 @ 机器人时日志给出可填入配置的 ID", async () => {
+  const lines: string[] = [];
+  const original = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: string) => { lines.push(String(chunk)); return true; }) as typeof process.stdout.write;
+  const env = testEnvironment();
+  try {
+    const router = new Router(env.config, env.store, { stop: async () => {} });
+    await router.handle({ tenantId: "tenant-new", chatId: "oc_new", messageId: "om_1", senderId: "ou_new", senderName: "n", senderType: "user",
+      text: "hi", mentionedBot: true, mentions: [], createdAt: Date.now() });
+  } finally { process.stdout.write = original; env.close(); }
+  const entry = lines.map(l => { try { return JSON.parse(l); } catch { return undefined; } }).find(x => x?.event === "message_ignored");
+  assert.deepEqual({ reason: entry?.reason, tenantId: entry?.tenantId, chatId: entry?.chatId, senderId: entry?.senderId },
+    { reason: "tenant_not_configured", tenantId: "tenant-new", chatId: "oc_new", senderId: "ou_new" });
+});

@@ -1,0 +1,14 @@
+Roundtable
+Copyright (c) 2026 hudikiller. Licensed under the MIT License (see LICENSE).
+
+This project includes or depends on third-party software:
+
+- src/protocol/ contains TypeScript type definitions generated from the App Server
+  protocol of OpenAI Codex (@openai/codex 0.153.4), licensed under the Apache License 2.0.
+  https://github.com/openai/codex
+- @larksuite/channel — MIT License
+- zod — MIT License
+- fflate — MIT License
+
+Names such as Feishu, Lark, Codex, Claude and Slack are trademarks of their respective
+owners. Roundtable is an independent project and is not affiliated with or endorsed by them.

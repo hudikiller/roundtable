@@ -1,0 +1,24 @@
+name: 🐛 Bug 报告 / Bug report
+description: 报告一个可复现的问题
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "请勿粘贴凭据、App Secret、成员 ID 或真实聊天内容。Do not paste secrets or real chat content."
+  - type: textarea
+    id: what
+    attributes: { label: 发生了什么 / What happened, description: 期望与实际行为 }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: 复现步骤 / Steps to reproduce, placeholder: "1. 在话题里发送…\n2. …" }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: 相关日志 / Logs, description: Bridge / Runner 日志片段（已脱敏）, render: shell }
+  - type: input
+    id: version
+    attributes: { label: 版本 / Version, placeholder: "v0.1.0 或 commit SHA" }
+  - type: dropdown
+    id: where
+    attributes: { label: 运行位置 / Where, options: [team-runner (Linux), 成员电脑 macOS, 成员电脑 Linux, 单机兼容模式] }

@@ -357,8 +357,14 @@ ${request}`;
   }
   async handle(m: IncomingMessage): Promise<void> {
     if (m.senderType !== "user" || m.createdAt < this.config.cutoffTime) return;
-    if (m.tenantId !== this.config.tenantId || !this.config.allowedChats.includes(m.chatId)) return;
+    if (m.tenantId !== this.config.tenantId || !this.config.allowedChats.includes(m.chatId)) {
+      // Setup aid: an @ from an unconfigured tenant/chat shows the IDs to put into config.json.
+      if (m.mentionedBot) log("message_ignored", { reason: m.tenantId !== this.config.tenantId ? "tenant_not_configured" : "chat_not_allowed",
+        tenantId: m.tenantId, chatId: m.chatId, senderId: m.senderId });
+      return;
+    }
     if (!this.config.allowedMembers.includes(m.senderId)) {
+      if (m.mentionedBot) log("message_ignored", { reason: "member_not_allowed", chatId: m.chatId, senderId: m.senderId });
       if (m.mentionedBot && this.store.insertMessage({ ...m, text: "[unauthorized]" }))
         this.reply(m, "你未被授权使用此机器人，请联系管理员配置成员权限。");
       return;
