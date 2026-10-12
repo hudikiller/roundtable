@@ -1,15 +1,15 @@
 # Runner on a Linux server (e.g. the shared "team-runner"). Executes tasks in Docker sandboxes.
 # KillMode=process keeps the independent lease watchdog alive so it can clean up after a crash.
 [Unit]
-Description=Feishu Codex Runner
+Description=Roundtable Runner
 After=network-online.target docker.service
 Requires=docker.service
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/feishu-codex
-Environment=FEISHU_RUNNER_CONFIG=/opt/feishu-codex/runner/runner.json
-ExecStart=/usr/bin/node /opt/feishu-codex/dist/src/runner/cli.js run
+WorkingDirectory=/opt/roundtable
+Environment=FEISHU_RUNNER_CONFIG=/opt/roundtable/runner/runner.json
+ExecStart=/usr/bin/node /opt/roundtable/dist/src/runner/cli.js run
 Restart=on-failure
 RestartSec=5
 KillMode=process

@@ -18,7 +18,7 @@ setSecrets([secrets.appSecret]);
 if (!config.runnerBridge || config.runnerBridge.feishuEnabled) throw new Error("仅允许独立无飞书消费者的技术验收配置");
 const store = new Store(join(config.dataDir, "control.sqlite")), registry = new RunnerRegistry(config, store);
 // Restart/crash scenarios act on these systemd units (see deploy/).
-const BRIDGE_UNIT = process.env.BRIDGE_UNIT ?? "feishu-codex.service", RUNNER_UNIT = process.env.RUNNER_UNIT ?? "feishu-codex-runner.service";
+const BRIDGE_UNIT = process.env.BRIDGE_UNIT ?? "roundtable.service", RUNNER_UNIT = process.env.RUNNER_UNIT ?? "roundtable-runner.service";
 const mode = process.argv[2] || "m0", name = process.argv[3] || "team-runner", runId = randomUUID();
 let node = registry.nodes().find(n => n.name === name);
 const nodeDeadline = Date.now() + 45_000;

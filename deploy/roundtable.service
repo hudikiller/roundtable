@@ -1,15 +1,15 @@
 # Bridge: Feishu long connection, intent routing, group agent, task queue and Runner API.
-# Copy to /etc/systemd/system/, adjust paths, then: systemctl daemon-reload && systemctl enable --now feishu-codex
+# Copy to /etc/systemd/system/, adjust paths, then: systemctl daemon-reload && systemctl enable --now roundtable
 [Unit]
-Description=Feishu Codex Bridge
+Description=Roundtable Bridge
 After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/feishu-codex
-Environment=FEISHU_CODEX_CONFIG=/opt/feishu-codex/config.json
-ExecStart=/usr/bin/node /opt/feishu-codex/dist/src/main.js
+WorkingDirectory=/opt/roundtable
+Environment=FEISHU_CODEX_CONFIG=/opt/roundtable/config.json
+ExecStart=/usr/bin/node /opt/roundtable/dist/src/main.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=60

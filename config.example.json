@@ -13,16 +13,16 @@
     "model": "node-only"
   },
   "repositories": [
-    { "id": "feedbackdesk", "path": "/opt/feishu-codex/fixtures/feedbackdesk", "ref": "HEAD", "checks": [["node", "--test"]] }
+    { "id": "feedbackdesk", "path": "/opt/roundtable/fixtures/feedbackdesk", "ref": "HEAD", "checks": [["node", "--test"]] }
   ],
   "defaultRepo": "feedbackdesk",
   "dataDir": "./data",
   "concurrency": 2,
   "runnerBridge": {
     "port": 9443,
-    "certFile": "/opt/feishu-codex/data/tls/bridge.crt",
-    "keyFile": "/opt/feishu-codex/data/tls/bridge.key",
-    "enrollmentKeyFile": "/opt/feishu-codex/data/enrollment.key",
+    "certFile": "/opt/roundtable/data/tls/bridge.crt",
+    "keyFile": "/opt/roundtable/data/tls/bridge.key",
+    "enrollmentKeyFile": "/opt/roundtable/data/enrollment.key",
     "defaultNode": "team-runner",
     "sharedNodes": ["team-runner"],
     "feishuEnabled": true,

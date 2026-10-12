@@ -1,12 +1,12 @@
 <div align="center">
 
-# Feishu Codex Team
+# Roundtable
 
 **把注意力还给团队。**
 
-一个记得整个群的 Agent，加上一群各管一件事的 Codex——跑在你选的机器上。
+圆桌旁，人和 AI 平等落座：它听完整场讨论，很少开口，<br>把结论和分工摆上桌，再交给各自机器上的 Codex 把事做完。
 
-*Attention is your team's scarcest resource. Spend it on decisions, not on repeating context.*
+*An AI teammate for Feishu/Lark that listens to the whole room, speaks rarely, and turns discussions into delivered work.*
 
 [English](#english) · [核心能力](#核心能力) · [快速开始](#快速开始how-to-start) · [日常用法](#日常用法) · [配置参考](#配置参考)
 
@@ -23,7 +23,7 @@
 - 一个人在群里补了一句需求，负责那件事的人和 Agent 却不知道；
 - AI 动不动插嘴，或者一个任务把另一个任务的上下文搅乱。
 
-**Feishu Codex Team** 让 Agent 像一位安静、可靠的同事那样待在飞书群里：
+**Roundtable** 让 AI 像一位安静、可靠的同事那样坐在飞书群的圆桌旁：
 
 > 它**一直在听**，所以你不用复述；它**很少说话**，所以不打扰；
 > 它把每件事放进**独立的话题**里做，所以不串线；
@@ -129,8 +129,8 @@
 ### 1. 获取代码并构建
 
 ```bash
-git clone https://github.com/hudikiller/feishu-codex-team.git /opt/feishu-codex
-cd /opt/feishu-codex
+git clone https://github.com/hudikiller/roundtable.git /opt/roundtable
+cd /opt/roundtable
 npm ci
 npm run build
 npm test
@@ -178,7 +178,7 @@ npm run image:build
 Runner 通过 HTTPS 连接 Bridge。用自带工具生成私有 CA 和服务端证书（SAN 为 `127.0.0.1` 和 `localhost`）：
 
 ```bash
-npm run runner:tls -- /opt/feishu-codex/data/tls
+npm run runner:tls -- /opt/roundtable/data/tls
 ```
 
 CA 私钥只留在服务器；只把 `ca.crt` 分发给 Runner。
@@ -208,47 +208,47 @@ cp .env.example .env && chmod 600 .env config.json
 ### 6. 启动 Bridge
 
 ```bash
-FEISHU_CODEX_CONFIG=/opt/feishu-codex/config.json node dist/src/main.js
+FEISHU_CODEX_CONFIG=/opt/roundtable/config.json node dist/src/main.js
 ```
 
-看到日志 `service_ready` 就说明启动成功。如果启用了主群 Agent，几十秒后还会出现 `group_history_imported`。长期运行请使用 `deploy/feishu-codex.service`。
+看到日志 `service_ready` 就说明启动成功。如果启用了主群 Agent，几十秒后还会出现 `group_history_imported`。长期运行请使用 `deploy/roundtable.service`。
 
 ### 7. 接入 `team-runner`（服务器节点）
 
 1. **签发一次性配对码**（10 分钟有效，只在可信终端里使用）：
 
    ```bash
-   FEISHU_CODEX_CONFIG=/opt/feishu-codex/config.json npm run runner:admin -- pair <Leader的open_id> team-runner
+   FEISHU_CODEX_CONFIG=/opt/roundtable/config.json npm run runner:admin -- pair <Leader的open_id> team-runner
    ```
 
 2. **准备节点配置**，并用配对码完成配对：
 
    ```bash
-   mkdir -p /opt/feishu-codex/runner && cd /opt/feishu-codex/runner
+   mkdir -p /opt/roundtable/runner && cd /opt/roundtable/runner
    cp ../runner.example.json template.json        # 按需修改 provider、projects、sandbox
    echo "CODEX_MODEL_API_KEY=你的编码模型Key" > .env && chmod 600 .env
    node -e 'const t=require("./template.json");t.code=process.argv[1];process.stdout.write(JSON.stringify(t))' "<配对码>" \
-     | FEISHU_RUNNER_CONFIG=/opt/feishu-codex/runner/runner.json npm --prefix /opt/feishu-codex run runner:setup
+     | FEISHU_RUNNER_CONFIG=/opt/roundtable/runner/runner.json npm --prefix /opt/roundtable run runner:setup
    ```
 
 3. **诊断**。两项都通过，节点才会接任务：
 
    ```bash
-   cd /opt/feishu-codex
-   FEISHU_RUNNER_CONFIG=/opt/feishu-codex/runner/runner.json npm run runner:doctor             # 免费：Docker、隔离、内存 OOM、TLS、项目
-   FEISHU_RUNNER_CONFIG=/opt/feishu-codex/runner/runner.json npm run runner:doctor -- --live   # 付费：真实模型 + 真实 shell 工具调用
+   cd /opt/roundtable
+   FEISHU_RUNNER_CONFIG=/opt/roundtable/runner/runner.json npm run runner:doctor             # 免费：Docker、隔离、内存 OOM、TLS、项目
+   FEISHU_RUNNER_CONFIG=/opt/roundtable/runner/runner.json npm run runner:doctor -- --live   # 付费：真实模型 + 真实 shell 工具调用
    ```
 
-4. **运行**。长期运行请使用 `deploy/feishu-codex-runner.service`：
+4. **运行**。长期运行请使用 `deploy/roundtable-runner.service`：
 
    ```bash
-   FEISHU_RUNNER_CONFIG=/opt/feishu-codex/runner/runner.json npm run runner
+   FEISHU_RUNNER_CONFIG=/opt/roundtable/runner/runner.json npm run runner
    ```
 
 5. 确认节点已经在线：
 
    ```bash
-   FEISHU_CODEX_CONFIG=/opt/feishu-codex/config.json npm run runner:admin -- nodes
+   FEISHU_CODEX_CONFIG=/opt/roundtable/config.json npm run runner:admin -- nodes
    ```
 
 `team-runner` 由 Leader 登记，并且列在 `sharedNodes` 里，因此所有获准成员都能使用。
@@ -366,7 +366,7 @@ FEISHU_RUNNER_CONFIG=… npm run test:sandbox   # 真实 Docker 隔离与资源�
 
 ## English
 
-**Feishu Codex Team** brings a Claude Tag–style teammate to Feishu/Lark group chats:
+**Roundtable** brings a Claude Tag–style teammate to Feishu/Lark group chats:
 
 - **A group agent that remembers everything.** One long-lived session per group:
   - it ingests every message, including ones that don't mention it, and imports full history;

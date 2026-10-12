@@ -1,8 +1,8 @@
 {
-  "name": "feishu-codex",
+  "name": "roundtable",
   "version": "0.1.0",
   "private": true,
-  "description": "A Claude Tag–style team agent for Feishu/Lark: one long-lived group agent, isolated topic sessions, and Codex runners on your own machines.",
+  "description": "Roundtable — an AI teammate for Feishu/Lark that listens to the whole room, speaks rarely, and turns discussions into delivered work.",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
@@ -43,6 +43,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hudikiller/feishu-codex-team.git"
+    "url": "https://github.com/hudikiller/roundtable.git"
   }
 }
