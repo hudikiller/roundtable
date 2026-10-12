@@ -1,6 +1,6 @@
 {
   "name": "roundtable",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Roundtable — an AI teammate for Feishu/Lark that listens to the whole room, speaks rarely, and turns discussions into delivered work.",
   "type": "module",
@@ -8,6 +8,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "init": "tsx scripts/init.ts",
     "setup": "tsx src/setup.ts",
     "doctor": "tsx src/doctor.ts",
     "start": "tsx src/main.ts",

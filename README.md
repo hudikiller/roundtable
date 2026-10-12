@@ -123,6 +123,26 @@
 
 下面带你从零搭一套最小可用环境：**一台 Linux 服务器同时运行 Bridge 和 `team-runner`**，在飞书测试群里跑通主群 Agent 与话题任务。成员电脑接入放在第 10 步。
 
+### ⚡ 一键初始化（推荐）
+
+先完成下文第 4 步“创建并配置飞书应用”（权限、事件、卡片回调、发布版本），然后：
+
+```bash
+git clone https://github.com/hudikiller/roundtable.git /opt/roundtable && cd /opt/roundtable
+npm ci && npm run build
+npm run init
+```
+
+向导会一步步带你完成：
+1. 检查环境（Node 24、Docker、Git、OpenSSL）；
+2. 填写飞书凭据和模型服务（密钥输入时不显示）；
+3. **自动识别测试群和成员**：只要在群里 @ 一次机器人；
+4. 生成证书、示例项目、`config.json` 和 `.env`；
+5. 在本机登记 `team-runner`；
+6. 可选：构建镜像、运行免费诊断和真实模型诊断、安装并启动 systemd 服务。
+
+它不会覆盖已有配置，也支持用 `RT_*` 环境变量配合 `npm run init -- --yes` 做无人值守部署。下面的分步说明适合想了解细节或自定义部署的读者。
+
 ### 0. 准备
 
 | 需要 | 说明 |

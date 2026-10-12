@@ -138,6 +138,26 @@ The interaction model is inspired by Claude Tag in Slack (a channel session plus
 
 This walkthrough sets up a minimal deployment: **one Linux server running both the Bridge and `team-runner`**, tested in a Feishu group. Member laptops are step 10.
 
+### ⚡ One-command setup (recommended)
+
+First complete step 4 below (create the Feishu app: scopes, events, card callback, publish), then:
+
+```bash
+git clone https://github.com/hudikiller/roundtable.git /opt/roundtable && cd /opt/roundtable
+npm ci && npm run build
+npm run init
+```
+
+The wizard walks you through:
+1. an environment check (Node 24, Docker, Git, OpenSSL);
+2. your Feishu credentials and model provider (secrets are hidden while typing);
+3. **automatic discovery of the test group and members**: just @-mention the bot once;
+4. generating the certificate, sample project, `config.json` and `.env`;
+5. registering `team-runner` on this machine;
+6. optionally: building the image, running the free and live diagnostics, and installing the systemd services.
+
+It never overwrites an existing deployment, and supports unattended setup via `RT_*` environment variables with `npm run init -- --yes`. The step-by-step guide below explains every detail for custom deployments.
+
 ### 0. Prerequisites
 
 | You need | Notes |
